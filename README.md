@@ -1,0 +1,170 @@
+# EventOS
+
+White-label, multi-tenant event discovery and merchant platform for festivals,
+night markets, expos, and fairs.
+
+- **Specification:** [EventOS_PROJECT.md](EventOS_PROJECT.md)
+- **Engineering rules:** [CLAUDE.md](CLAUDE.md)
+- **Architecture:** [docs/architecture.md](docs/architecture.md)
+- **Database:** [docs/database.md](docs/database.md)
+- **Current phase:** Phase 0 (Foundation) — see [docs/phase-0-plan.md](docs/phase-0-plan.md)
+
+---
+
+## Stack
+
+| Layer      | Choice                                               |
+| ---------- | ---------------------------------------------------- |
+| Framework  | Next.js 16 (App Router), React 19, TypeScript strict |
+| Styling    | Tailwind CSS v4, shadcn/ui (Base UI)                 |
+| Database   | Supabase Postgres, Drizzle ORM                       |
+| Auth       | Supabase Auth via `@supabase/ssr`, HTTP-only cookies |
+| Storage    | Supabase Storage (S3-compatible)                     |
+| Validation | Zod 4                                                |
+| Tests      | Vitest (unit), Playwright (e2e)                      |
+| Hosting    | Vercel                                               |
+
+---
+
+## Getting started
+
+### 1. Create the Supabase project
+
+1. Create a project at [supabase.com](https://supabase.com). Choose the
+   **Singapore (`ap-southeast-1`)** region — closest to Malaysia.
+2. **Storage → New bucket** → name it `eventos-public`, mark it public.
+3. **Authentication → URL Configuration** → set the Site URL to
+   `http://localhost:3000` and add `http://localhost:3000/auth/callback` to the
+   redirect allow-list.
+
+### 2. Configure the environment
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in from **Project Settings → API** and **→ Database**:
+
+| Variable                        | Where                                                      |
+| ------------------------------- | ---------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | API → Project URL                                          |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | API → anon/public key                                      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | API → service_role key (**server-only**)                   |
+| `DATABASE_URL`                  | Database → Connection string → **Transaction** (port 6543) |
+| `DIRECT_DATABASE_URL`           | Database → Connection string → **Session** (port 5432)     |
+
+Every value is validated at build time — a missing or malformed one fails the
+build rather than the first request.
+
+### 3. Install, migrate, seed, run
+
+```bash
+pnpm install
+pnpm db:migrate    # creates profiles + the auth triggers
+pnpm db:seed       # 5 development accounts
+pnpm dev
+```
+
+Open http://localhost:3000 and sign in with `organizer.owner@eventos.test` /
+`eventos-dev-password`.
+
+### 4. Optional — Google sign-in
+
+Enable Google in **Authentication → Providers**, then set
+`AUTH_GOOGLE_ENABLED=true`. The button stays hidden until you do, so there is no
+broken flow in the meantime.
+
+---
+
+## Scripts
+
+| Command            | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| `pnpm dev`         | Development server                                    |
+| `pnpm verify`      | Typecheck + lint + unit tests — run before committing |
+| `pnpm test`        | Unit tests                                            |
+| `pnpm test:e2e`    | Playwright end-to-end tests                           |
+| `pnpm db:generate` | Generate a migration from schema changes              |
+| `pnpm db:migrate`  | Apply pending migrations                              |
+| `pnpm db:seed`     | Development fixtures (refuses to run in production)   |
+| `pnpm db:studio`   | Drizzle Studio                                        |
+| `pnpm format`      | Prettier                                              |
+
+---
+
+## Project layout
+
+```
+src/
+├── app/                    routes
+│   ├── (auth)/             sign-in, sign-up, password reset
+│   ├── (dashboard)/        authenticated organizer area
+│   ├── auth/callback/      OAuth + email link exchange
+│   └── api/health/         liveness and readiness probes
+├── components/
+│   ├── ui/                 shadcn primitives
+│   └── forms/              Server-Action-friendly field wrappers
+├── features/auth/          actions, schemas, components
+├── server/
+│   ├── auth/               Supabase clients, session resolution
+│   ├── context.ts          RequestContext — the tenant-isolation seam
+│   ├── db/
+│   │   ├── schema/         Drizzle tables
+│   │   └── repositories/   the ONLY importers of `db`
+│   ├── policies/           requireUser and friends
+│   ├── services/           business logic
+│   └── telemetry/          structured logger
+├── lib/api/                response envelope, error codes, handler
+├── config/                 environment validation
+└── proxy.ts                session refresh + coarse route guard
+```
+
+---
+
+## Testing
+
+```bash
+pnpm test          # unit — no external services required
+pnpm test:e2e      # end-to-end — builds and starts the app
+```
+
+The route-guard, validation, and header e2e tests need no credentials. The full
+sign-in journey needs a live Supabase project with seeded users; without one it
+**skips with a reason** rather than passing silently.
+
+---
+
+## CI
+
+`.github/workflows/ci.yml` runs typecheck, lint, format check, unit tests, and
+build on every push and pull request, using placeholder environment values so
+that env validation itself is exercised.
+
+The e2e job runs only when `E2E_SUPABASE_URL` and its companion secrets are
+configured; otherwise it emits a warning saying the tests were skipped.
+
+---
+
+## Deployment (Vercel)
+
+1. Import the repository.
+2. Add every variable from `.env.example` (real values).
+3. Set `NEXT_PUBLIC_APP_URL` to the deployed URL.
+4. Add `https://<your-domain>/auth/callback` to the Supabase redirect allow-list.
+5. Run `pnpm db:migrate` against the production database as a release step.
+
+---
+
+## Roadmap
+
+| Phase | Scope                                             | Status      |
+| ----- | ------------------------------------------------- | ----------- |
+| 0     | Foundation — auth, database, CI, API contract     | ✅ Complete |
+| 1     | Multi-tenant platform — tenants, RBAC, audit logs | Next        |
+| 2     | Event management                                  |             |
+| 3     | Merchant onboarding                               |             |
+| 4     | Booths and maps                                   |             |
+| 5     | Visitor experience                                |             |
+| 6     | Monetization                                      |             |
+| 7     | Analytics                                         |             |
+| 8     | Vouchers and campaigns                            |             |
