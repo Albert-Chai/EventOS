@@ -14,13 +14,13 @@ const validServer = {
   NODE_ENV: "development",
   DATABASE_URL: "postgresql://user:pass@localhost:6543/postgres",
   DIRECT_DATABASE_URL: "postgresql://user:pass@localhost:5432/postgres",
-  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  SUPABASE_SECRET_KEY: "sb_secret_AAAAAAAAAAAAAAAAAAAAAA",
 };
 
 const validClient = {
   NEXT_PUBLIC_APP_URL: "http://localhost:3000",
   NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_BBBBBBBBBBBBBBBBBBBBBB",
 };
 
 describe("server env", () => {
@@ -41,9 +41,17 @@ describe("server env", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires the service role key", () => {
-    const { SUPABASE_SERVICE_ROLE_KEY: _omitted, ...rest } = validServer;
+  it("requires the secret key", () => {
+    const { SUPABASE_SECRET_KEY: _omitted, ...rest } = validServer;
     expect(serverSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("refuses a publishable key in the secret slot", () => {
+    const result = serverSchema.safeParse({
+      ...validServer,
+      SUPABASE_SECRET_KEY: "sb_publishable_DDDDDDDDDDDDDDDDDDDDDD",
+    });
+    expect(result.success).toBe(false);
   });
 
   it("defaults NODE_ENV to development and rejects unknown values", () => {
@@ -90,11 +98,35 @@ describe("client env", () => {
     expect(parsed.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET).toBe("eventos-public");
   });
 
+  it("refuses a secret key in the publishable slot", () => {
+    // The one that actually matters: every NEXT_PUBLIC_* value is inlined into
+    // the client bundle, so this mistake publishes full database access to
+    // every visitor. It must fail the build, not merely be discouraged.
+    const result = clientSchema.safeParse({
+      ...validClient,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_secret_CCCCCCCCCCCCCCCCCCCCCC",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/secret key/i);
+    }
+  });
+
+  it("still accepts a legacy anon JWT", () => {
+    // Older projects were provisioned before the sb_publishable_ format.
+    const result = clientSchema.safeParse({
+      ...validClient,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc.def",
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("does not expose any server secret through the client shape", () => {
     // A regression guard: adding a secret to `client` would ship it to browsers.
     const clientKeys = Object.keys(clientEnvShape);
     expect(clientKeys.every((key) => key.startsWith("NEXT_PUBLIC_"))).toBe(true);
-    expect(clientKeys).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(clientKeys).not.toContain("SUPABASE_SECRET_KEY");
     expect(clientKeys).not.toContain("DATABASE_URL");
   });
 });

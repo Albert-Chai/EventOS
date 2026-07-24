@@ -45,13 +45,13 @@ cp .env.example .env.local
 
 Fill in from **Project Settings → API** and **→ Database**:
 
-| Variable                        | Where                                                      |
-| ------------------------------- | ---------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | API → Project URL                                          |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | API → anon/public key                                      |
-| `SUPABASE_SERVICE_ROLE_KEY`     | API → service_role key (**server-only**)                   |
-| `DATABASE_URL`                  | Database → Connection string → **Transaction** (port 6543) |
-| `DIRECT_DATABASE_URL`           | Database → Connection string → **Session** (port 5432)     |
+| Variable                               | Where                                                      |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`             | API → Project URL                                          |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API Keys → **publishable** (`sb_publishable_…`)            |
+| `SUPABASE_SECRET_KEY`                  | API Keys → **secret** (`sb_secret_…`) — **server-only**    |
+| `DATABASE_URL`                         | Database → Connection string → **Transaction** (port 6543) |
+| `DIRECT_DATABASE_URL`                  | Database → Connection string → **Session** (port 5432)     |
 
 Every value is validated at build time — a missing or malformed one fails the
 build rather than the first request.

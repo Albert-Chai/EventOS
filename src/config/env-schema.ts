@@ -31,8 +31,18 @@ export const serverEnvShape = {
   DIRECT_DATABASE_URL: nonEmpty.startsWith("postgres"),
 
   // --- Supabase ------------------------------------------------------------
-  /** Server-side only. Bypasses every guard — never expose to the client. */
-  SUPABASE_SERVICE_ROLE_KEY: nonEmpty,
+  /**
+   * Server-side only. Bypasses RLS and every user-facing guard.
+   * New-format `sb_secret_…`, or a legacy `service_role` JWT on older projects.
+   *
+   * The refinement catches the swap in the harmless direction (a publishable
+   * key here just makes privileged calls fail); the one on the client side
+   * catches the dangerous direction.
+   */
+  SUPABASE_SECRET_KEY: nonEmpty.refine(
+    (value) => !value.startsWith("sb_publishable_"),
+    "This is the publishable key. SUPABASE_SECRET_KEY needs the secret key (sb_secret_…).",
+  ),
 
   // --- Secrets -------------------------------------------------------------
   /** Guards cron and webhook endpoints. `openssl rand -base64 32`. */
@@ -67,8 +77,19 @@ export const clientEnvShape = {
   NEXT_PUBLIC_APP_URL: url,
   NEXT_PUBLIC_APP_NAME: nonEmpty.default("EventOS"),
   NEXT_PUBLIC_SUPABASE_URL: url,
-  /** Publishable. Safe in the browser; used for auth flows only. */
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: nonEmpty,
+  /**
+   * Publishable key (`sb_publishable_…`), or a legacy `anon` JWT. Safe in the
+   * browser by design; used for auth flows only.
+   *
+   * The refinement is a real security control, not a formatting nicety: every
+   * `NEXT_PUBLIC_*` value is inlined into the client bundle, so pasting the
+   * secret key here would publish full database access to every visitor.
+   * Fail the build instead.
+   */
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmpty.refine(
+    (value) => !value.startsWith("sb_secret_") && !value.startsWith("service_role"),
+    "This looks like the SECRET key. It would be shipped to every browser — use the publishable key (sb_publishable_…).",
+  ),
   NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET: nonEmpty.default("eventos-public"),
   NEXT_PUBLIC_POSTHOG_KEY: optional,
   NEXT_PUBLIC_POSTHOG_HOST: url.optional().or(z.literal("").transform(() => undefined)),

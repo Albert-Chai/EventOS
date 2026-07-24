@@ -14,23 +14,27 @@ import { env } from "@/config/env";
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options);
+  return createServerClient(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            for (const { name, value, options } of cookiesToSet) {
+              cookieStore.set(name, value, options);
+            }
+          } catch {
+            // Server Components cannot set cookies. The middleware refreshes the
+            // session on every request, so this is safe to swallow here.
           }
-        } catch {
-          // Server Components cannot set cookies. The middleware refreshes the
-          // session on every request, so this is safe to swallow here.
-        }
+        },
       },
     },
-  });
+  );
 }
 
 /**
@@ -41,7 +45,7 @@ export async function createServerSupabaseClient() {
  * serves visitor or organizer traffic.
  */
 export function createServiceRoleClient() {
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

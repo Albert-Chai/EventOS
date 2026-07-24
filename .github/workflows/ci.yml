@@ -19,9 +19,9 @@ env:
   NEXT_PUBLIC_APP_URL: https://app.eventos.my
   NEXT_PUBLIC_APP_NAME: EventOS
   NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
   NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET: eventos-public
-  SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+  SUPABASE_SECRET_KEY: ci-placeholder-secret-key
   DATABASE_URL: postgresql://ci:ci@localhost:6543/postgres
   DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/postgres
 
@@ -108,8 +108,8 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3100
           NEXT_PUBLIC_APP_NAME: EventOS
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
           DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
           DIRECT_DATABASE_URL: ${{ secrets.E2E_DIRECT_DATABASE_URL }}
         run: |
