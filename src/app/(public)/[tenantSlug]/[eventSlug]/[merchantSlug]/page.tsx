@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { MediaImage } from "@/components/media/media-image";
 import { formatPrice } from "@/features/merchants/format";
+import { FavouriteButton } from "@/features/visitors/components/favourite-button";
+import { RecordView } from "@/features/visitors/components/record-view";
+import { ShareButton } from "@/features/visitors/components/share-button";
 import { findPublicBoothNumberForMerchant } from "@/server/db/repositories/booths.repository";
 import { getEventSettings } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
@@ -12,6 +15,7 @@ import { listFilesByIds } from "@/server/db/repositories/files.repository";
 import { listPublicItemsForParticipation } from "@/server/db/repositories/listing-items.repository";
 import { findPublicParticipationByMerchantSlug } from "@/server/db/repositories/participations.repository";
 import { publicFileUrl } from "@/server/services/media.service";
+import { listFavouriteParticipationIdsForRead } from "@/server/services/visitor.service";
 
 type Params = {
   params: Promise<{ tenantSlug: string; eventSlug: string; merchantSlug: string }>;
@@ -44,12 +48,16 @@ export default async function PublicMerchantPage({ params }: Params) {
   const listing = await findPublicParticipationByMerchantSlug(event.id, merchantSlug);
   if (!listing) notFound();
 
-  const [items, settings, boothNumber] = await Promise.all([
+  const [items, settings, boothNumber, favourites] = await Promise.all([
     listPublicItemsForParticipation(listing.participationId),
     getEventSettings(event.tenantId, event.id),
     findPublicBoothNumberForMerchant(event.id, merchantSlug),
+    listFavouriteParticipationIdsForRead(event.id),
   ]);
   const showPrices = settings?.showMerchantPrices ?? true;
+  const enableFavourites = settings?.enableFavourites ?? true;
+  const favourited = favourites.has(listing.participationId);
+  const displayName = listing.listingTitle || listing.merchant.name;
 
   // Resolve media URLs for the merchant logo/cover and item photos.
   const fileIds = [
@@ -65,6 +73,11 @@ export default async function PublicMerchantPage({ params }: Params) {
 
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
+      <RecordView
+        tenantSlug={event.tenantSlug}
+        eventSlug={event.slug}
+        merchantSlug={merchantSlug}
+      />
       <Link
         href={`/${event.tenantSlug}/${event.slug}`}
         className="text-muted-foreground text-sm hover:underline"
@@ -98,6 +111,19 @@ export default async function PublicMerchantPage({ params }: Params) {
           </h1>
           <p className="text-muted-foreground text-sm">{listing.merchant.name}</p>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {enableFavourites ? (
+          <FavouriteButton
+            tenantSlug={event.tenantSlug}
+            eventSlug={event.slug}
+            merchantSlug={merchantSlug}
+            initialFavourited={favourited}
+            variant="button"
+          />
+        ) : null}
+        <ShareButton title={displayName} text={listing.merchant.description ?? undefined} />
       </div>
 
       {boothNumber ? (

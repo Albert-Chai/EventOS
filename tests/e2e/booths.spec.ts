@@ -26,7 +26,7 @@ test.describe("Phase 4 booths & maps", () => {
   test("a visitor can click a booth on the public map to reach the merchant", async ({ page }) => {
     // The event page surfaces the map shortcut once booths exist.
     await page.goto(`/${TENANT_SLUG}/street-eats`);
-    await page.getByRole("link", { name: /View the event map/ }).click();
+    await page.getByRole("link", { name: "🗺️ Map" }).click();
     await page.waitForURL(/\/street-eats\/map$/);
 
     // The seeded confirmed booth A-1 belongs to Nasi Lemak Bangsar — click it.

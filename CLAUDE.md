@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 4 complete** (booths, maps & the media pass). Next: Phase 5 (visitor experience).
+Current state: **Phase 5 complete** (visitor experience — directory search, favourites, recently-viewed & PWA). Next: Phase 6.
 
 ---
 

@@ -1,0 +1,65 @@
+"use client";
+
+import { Share2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { cn } from "@/lib/utils";
+
+/**
+ * Share the current page (spec §8.8). Uses the Web Share sheet on mobile and
+ * falls back to copying the link to the clipboard everywhere else.
+ */
+export function ShareButton({
+  title,
+  text,
+  className,
+}: {
+  title: string;
+  text?: string;
+  className?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(window.location.href);
+    toast.success("Link copied");
+  }
+
+  async function share() {
+    setBusy(true);
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title, text, url: window.location.href });
+      } else {
+        await copyLink();
+      }
+    } catch (error) {
+      // The user dismissing the native share sheet throws AbortError — ignore it.
+      if ((error as Error)?.name !== "AbortError") {
+        try {
+          await copyLink();
+        } catch {
+          toast.error("Couldn’t share this page.");
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={share}
+      disabled={busy}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 disabled:opacity-60",
+        className,
+      )}
+    >
+      <Share2 className="size-4" aria-hidden />
+      Share
+    </button>
+  );
+}

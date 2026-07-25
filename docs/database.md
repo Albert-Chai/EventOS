@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 4.
+Current as of Phase 5.
 
 ---
 
@@ -96,8 +96,10 @@ pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 | `drizzle/0007_merchants_constraints.sql`   | **Hand-written** — merchant→auth.users FKs, per-tenant `lower(slug)` indexes, triggers, grants                                        |
 | `drizzle/0008_petite_harry_osborn.sql`     | Generated — files, zones, maps, map_floors, booths, booth_assignments (+ FKs from the reserved `*_file_id` columns)                   |
 | `drizzle/0009_booths_constraints.sql`      | **Hand-written** — files/assignment→auth.users FKs, `lower(booth_number)` + "one active assignment" partial indexes, triggers, grants |
+| `drizzle/0010_organic_psynapse.sql`        | Generated — visitors, visitor_favourites, visitor_recent_views (+ FKs to tenants/events/participations/merchants)                     |
+| `drizzle/0011_visitors_constraints.sql`    | **Hand-written** — `visitors.user_id → auth.users` (SET NULL) FK, triggers on visitors + visitor_recent_views, grants                 |
 
-`_journal.json` lists all ten; hand-written files must be added to it manually.
+`_journal.json` lists all twelve; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -204,6 +206,33 @@ and `listing_items`. Notes:
 - Cross-schema `auth.users` FKs (`files.created_by`,
   `booth_assignments.assigned_by`) are hand-written in 0009.
 
+### Phase 5 additions
+
+The visitor experience: `visitors`, `visitor_favourites`, `visitor_recent_views`.
+Notes:
+
+- **`visitors` is not tenant-scoped.** A visitor is a person moving across events
+  and organizers, identified by an anonymous `anonymous_id` (unique) carried in the
+  `eventos_vid` httpOnly cookie; a row is created lazily on the first favourite or
+  view, so plain browsing writes nothing. `user_id` is a **reserved** nullable FK
+  to `auth.users` (`ON DELETE SET NULL`, hand-written in 0011) for a future
+  account link — no visitor auth ships in Phase 5.
+- **Favourites and recent-views _are_ tenant-scoped** (`tenant_id`, `event_id`,
+  `participation_id`, `merchant_id` FKs, all `ON DELETE CASCADE`) but are read by
+  **visitor + event**, not by tenant — the visitor id is the device identity, like
+  a user id, and is derived from the cookie server-side, never from the client.
+  Each has a `unique(visitor_id, participation_id)` so a save/view is idempotent
+  (a re-view bumps `viewed_at`; a re-save is a no-op).
+- **The directory read filters by public status**, the same seam as Phase 2–4:
+  `searchPublicDirectory` returns a merchant only when its participation is
+  `approved` and the merchant is active. Postgres full-text (`to_tsvector` +
+  `websearch_to_tsquery`, both `simple`) ranks the query against a document built
+  from the merchant, listing, category, item text, and booth/zone; the MVP filters
+  (category, zone, halal, promo, price) narrow it. Un-indexed at MVP scale — a
+  stored `tsvector` + GIN is the noted upgrade.
+- `visitor_favourites` has **no `updated_at`** (rows are insert/delete only), so it
+  carries no `set_updated_at` trigger; `visitors` and `visitor_recent_views` do.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -226,11 +255,15 @@ that tenant: a **published** one (`street-eats`, public at
 `/kl-food-weekend/street-eats`) and a **draft** (`ramadan-bazaar-trial`, which
 `404`s publicly). Phase 3 adds a merchant (`nasi-lemak-bangsar`, managed by
 `merchant.owner@eventos.test`) with an **approved** listing and three items in the
-published event, so the public merchant page works out of the box. Idempotent.
-Refuses to run when `NODE_ENV=production` or when the connection string looks like
-production.
+published event, so the public merchant page works out of the box. Phase 4 adds a
+floor plan, two zones, five booths, and a confirmed assignment (Nasi Lemak Bangsar
+in booth A-1), plus a seeded merchant logo — exercising the media pass end to end.
+Phase 5 adds a demo `visitors` row (`anonymous_id = seed-demo-visitor`) with one
+favourite and one recent view; set the cookie `eventos_vid=seed-demo-visitor` in
+the browser to browse as that visitor. Idempotent. Refuses to run when
+`NODE_ENV=production` or when the connection string looks like production.
 
-Booths and analytics rows in spec §38 are added as their phases land.
+Analytics rows in spec §38 are added as their phases land.
 
 ---
 
@@ -242,7 +275,7 @@ Booths and analytics rows in spec §38 are added as their phases land.
 | 2 ✅  | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                                               |
 | 3 ✅  | `merchants`, `merchant_members`, `merchant_invitations`, `merchant_categories`, `merchant_event_participations`, `listing_items` (`imports`/`import_rows` deferred) |
 | 4 ✅  | `files`, `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                               |
-| 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
+| 5 ✅  | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
 | 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                                        |
 | 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
 | 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                                                   |

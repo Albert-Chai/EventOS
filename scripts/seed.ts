@@ -37,6 +37,9 @@ import {
   tenantMemberRoles,
   tenantMembers,
   tenants,
+  visitorFavourites,
+  visitorRecentViews,
+  visitors,
   zones,
 } from "../src/server/db/schema";
 import type { EventType } from "../src/server/events/event-types";
@@ -663,6 +666,45 @@ async function main() {
             .where(eq(merchants.id, merchant.id));
           console.log("  + merchant logo");
         }
+
+        // --- Phase 5: a demo visitor with a saved + recently-viewed merchant --
+        // Anonymous, cookie-backed. Set the cookie `eventos_vid=seed-demo-visitor`
+        // in the browser to browse as this visitor and see the seeded data.
+        const [demoVisitor] = await db
+          .insert(visitors)
+          .values({ anonymousId: "seed-demo-visitor", displayName: "Demo Visitor" })
+          .onConflictDoUpdate({ target: visitors.anonymousId, set: { lastActiveAt: now } })
+          .returning();
+        if (demoVisitor) {
+          await db
+            .insert(visitorFavourites)
+            .values({
+              visitorId: demoVisitor.id,
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              participationId: participation.id,
+              merchantId: merchant.id,
+            })
+            .onConflictDoNothing({
+              target: [visitorFavourites.visitorId, visitorFavourites.participationId],
+            });
+          await db
+            .insert(visitorRecentViews)
+            .values({
+              visitorId: demoVisitor.id,
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              participationId: participation.id,
+              merchantId: merchant.id,
+            })
+            .onConflictDoUpdate({
+              target: [visitorRecentViews.visitorId, visitorRecentViews.participationId],
+              set: { viewedAt: now },
+            });
+          console.log(
+            "  + demo visitor (1 favourite, 1 recent view) — cookie eventos_vid=seed-demo-visitor",
+          );
+        }
       }
     }
 
@@ -686,6 +728,8 @@ async function main() {
     );
     console.log("  /kl-food-weekend/street-eats/nasi-lemak-bangsar → an approved merchant listing");
     console.log("  /kl-food-weekend/street-eats/map            → the interactive booth map");
+    console.log("  /kl-food-weekend/street-eats/merchants      → searchable merchant directory");
+    console.log("  /kl-food-weekend/street-eats/favourites     → saved merchants (per device)");
   } finally {
     await sql.end();
   }

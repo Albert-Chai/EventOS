@@ -9,6 +9,8 @@
  * Phase 3: merchants — the merchant axis, participations, and listing items.
  * Phase 4: media (`files`) and the floor plan — zones, maps, map_floors, booths,
  * booth_assignments. The reserved `*_file_id` columns now reference `files`.
+ * Phase 5: the visitor — visitors (anonymous, cookie-backed), favourites, recent
+ * views. Not tenant-scoped by membership; favourites/recent carry tenant + event.
  */
 export * from "./profiles";
 export * from "./tenants";
@@ -30,3 +32,6 @@ export * from "./zones";
 export * from "./maps";
 export * from "./booths";
 export * from "./booth-assignments";
+export * from "./visitors";
+export * from "./visitor-favourites";
+export * from "./visitor-recent-views";

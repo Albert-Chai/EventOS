@@ -71,6 +71,20 @@
       "when": 1784954063227,
       "tag": "0009_booths_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784958392949,
+      "tag": "0010_organic_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784958392950,
+      "tag": "0011_visitors_constraints",
+      "breakpoints": true
     }
   ]
 }

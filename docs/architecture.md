@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 4. Update this file whenever the shape changes
+Current as of Phase 5. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -285,8 +285,39 @@ cancels (`booth.manage`, tenant-scoped); the merchant confirms their own booth
   cross-tenant invisibility of booths/zones, tenant-scoped assignment lookups, and
   public-shows-approved-only.
 
-### What Phase 5 changes
+## 12. Phase 5 — visitor experience (shipped)
 
-- The visitor experience — public directory, search, filters, favourites, recently
-  viewed, PWA — builds on the public event/merchant/map surfaces. The map's search
-  and (deferred) category filter graduate into the shared visitor search.
+The public event site becomes something a visitor can explore on a phone:
+a searchable, filterable merchant directory, one-tap favourites, recently-viewed,
+and an installable PWA — all anonymous, all mobile-first at 390px.
+
+- **Anonymous, cookie-backed identity.** A `visitors` row is minted lazily on the
+  first favourite/view and pinned by the `eventos_vid` httpOnly cookie
+  (`server/services/visitor.service.ts`). The write path
+  (`resolveVisitorForAction`) sets the cookie — only possible in a Server Action —
+  while Server Components read it read-only (`getVisitorForRead`). `visitors` is
+  **not** tenant-scoped; favourites/recent-views are, but are keyed by visitor +
+  event, with `tenant_id`/`event_id` always resolved from the URL slugs via
+  `findPublicEvent`, never a client value — the §6 public seam extended to the
+  visitor's own writes.
+- **The directory** (`/[tenantSlug]/[eventSlug]/merchants`) runs one parameterized
+  Postgres full-text query (`directory.repository.ts`): a CTE of item facts, a
+  `to_tsvector`/`websearch_to_tsquery` ranked document, and the MVP filter set
+  (category, zone, halal, promo, price). The URL is the state — search + filter
+  chips are shareable and reload-safe (`features/visitors/filters.ts` parses the
+  params; unit-covered). Cards, favourites, and recent-views all render through one
+  `MerchantCard`.
+- **Favourites & recent-views** (`/favourites`, plus the event home strip) read
+  only still-public listings, so an unapproved merchant silently drops from a
+  visitor's saved list. The favourite heart is optimistic and re-checks the
+  `enable_favourites` setting server-side.
+- **PWA** (spec §8.10): a per-event `manifest.webmanifest` route (name/scope/theme
+  from the event; a draft's manifest 404s like its page), a network-first service
+  worker with an `/offline` fallback (HTML never cached — it's per-visitor), an
+  install banner, and dependency-free generated icons. Registration lives in the
+  public layout so it covers every event.
+- **Isolation proven again** — `tests/integration/visitor-directory.test.ts` covers
+  favourite/recent isolation by visitor and event, the public-shows-approved-only
+  seam across the directory, and every filter; `directory-filters.test.ts` unit-
+  covers the param parser; `tests/e2e/visitors.spec.ts` walks search → filter →
+  favourite → the favourites page.

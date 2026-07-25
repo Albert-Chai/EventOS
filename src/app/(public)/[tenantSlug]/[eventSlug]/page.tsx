@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { RecentlyViewed } from "@/features/visitors/components/recently-viewed";
 import { EventPhaseBadge } from "@/features/events/components/event-status-badge";
 import {
   eventTypeLabel,
@@ -17,6 +19,7 @@ import {
 import { eventHasBooths } from "@/server/db/repositories/booths.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
+import { listRecentViewsForRead } from "@/server/services/visitor.service";
 
 type Params = { params: Promise<{ tenantSlug: string; eventSlug: string }> };
 
@@ -26,10 +29,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!event) return { title: "Event not found", robots: { index: false, follow: false } };
 
   const index = event.visibility === "public";
+  const base = `/${event.tenantSlug}/${event.slug}`;
   return {
     title: `${event.name} · ${event.tenantName}`,
     description: event.shortDescription ?? undefined,
     robots: { index, follow: index },
+    // Installable as its own app (spec §8.10) — the manifest is per-event.
+    manifest: `${base}/manifest.webmanifest`,
+    appleWebApp: { capable: true, title: event.name, statusBarStyle: "default" },
     openGraph: {
       title: event.name,
       description: event.shortDescription ?? undefined,
@@ -46,17 +53,22 @@ export default async function PublicEventPage({ params }: Params) {
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [branding, settings, hours, merchants, hasMap] = await Promise.all([
+  const [branding, settings, hours, merchants, hasMap, recentlyViewed] = await Promise.all([
     getEventBranding(event.tenantId, event.id),
     getEventSettings(event.tenantId, event.id),
     listEventOperatingHours(event.tenantId, event.id),
     listPublicParticipations(event.id),
     eventHasBooths(event.id),
+    listRecentViewsForRead(event.id),
   ]);
 
   const primary = branding?.primaryColor ?? "#0f172a";
   const mapUrl = venueMapUrl(event.latitude, event.longitude, event.venueAddress);
   const showHours = (settings?.showOperatingHours ?? true) && hours.length > 0;
+  const baseHref = `/${event.tenantSlug}/${event.slug}`;
+  const enableFavourites = settings?.enableFavourites ?? true;
+  const MERCHANT_PREVIEW = 8;
+  const previewMerchants = merchants.slice(0, MERCHANT_PREVIEW);
 
   return (
     <article className="mx-auto w-full max-w-2xl">
@@ -78,6 +90,37 @@ export default async function PublicEventPage({ params }: Params) {
       </header>
 
       <div className="grid gap-8 px-4 py-8 sm:px-8">
+        {merchants.length > 0 || hasMap || enableFavourites ? (
+          <nav className="flex flex-wrap gap-2">
+            {merchants.length > 0 ? (
+              <Link
+                href={`${baseHref}/merchants`}
+                className="hover:bg-muted/50 flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors"
+              >
+                🔍 Search merchants
+              </Link>
+            ) : null}
+            {hasMap ? (
+              <Link
+                href={`${baseHref}/map`}
+                className="hover:bg-muted/50 flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors"
+              >
+                🗺️ Map
+              </Link>
+            ) : null}
+            {enableFavourites ? (
+              <Link
+                href={`${baseHref}/favourites`}
+                className="hover:bg-muted/50 flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors"
+              >
+                ♥ Favourites
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
+
+        <RecentlyViewed cards={recentlyViewed} baseHref={baseHref} />
+
         <section className="grid gap-3">
           <div>
             <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
@@ -134,30 +177,29 @@ export default async function PublicEventPage({ params }: Params) {
           </section>
         ) : null}
 
-        {hasMap ? (
-          <a
-            href={`/${event.tenantSlug}/${event.slug}/map`}
-            className="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-4 text-sm font-medium transition-colors"
-          >
-            <span>🗺️ View the event map</span>
-            <span aria-hidden style={{ color: primary }}>
-              →
-            </span>
-          </a>
-        ) : null}
-
         <section className="grid gap-3">
-          <h2 className="text-lg font-semibold">Merchants</h2>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-lg font-semibold">Merchants</h2>
+            {merchants.length > MERCHANT_PREVIEW ? (
+              <Link
+                href={`${baseHref}/merchants`}
+                className="text-sm underline underline-offset-4"
+                style={{ color: primary }}
+              >
+                See all {merchants.length} →
+              </Link>
+            ) : null}
+          </div>
           {merchants.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               Merchant listings will appear here as they&apos;re approved.
             </p>
           ) : (
             <ul className="grid gap-2">
-              {merchants.map((m) => (
+              {previewMerchants.map((m) => (
                 <li key={m.participationId}>
                   <a
-                    href={`/${event.tenantSlug}/${event.slug}/${m.merchantSlug}`}
+                    href={`${baseHref}/${m.merchantSlug}`}
                     className="hover:bg-muted/50 flex flex-col gap-0.5 rounded-lg border p-3 transition-colors"
                   >
                     <span className="font-medium">{m.listingTitle || m.merchantName}</span>

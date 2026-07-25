@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 4 complete (booths, maps & media) — see [docs/phase-4-plan.md](docs/phase-4-plan.md); next is Phase 5 (visitor experience)
+- **Current phase:** Phase 5 complete (visitor experience — directory search, favourites & PWA) — see [docs/phase-5-plan.md](docs/phase-5-plan.md); next is Phase 6
 
 ---
 
@@ -85,12 +85,16 @@ Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
 - `merchant.owner@eventos.test` — merchant → `/merchant` (manages Nasi Lemak Bangsar)
 
 The seeded workspace ships a published event with an approved merchant, a floor
-plan, booths, and a confirmed booth assignment. Public pages:
+plan, booths, a confirmed booth assignment, and a demo visitor with a saved
+merchant. Public pages:
 
 - `/kl-food-weekend` — the workspace's public event index
 - `/kl-food-weekend/street-eats` — a published event (the draft `404`s)
 - `/kl-food-weekend/street-eats/nasi-lemak-bangsar` — an approved merchant listing
 - `/kl-food-weekend/street-eats/map` — the interactive booth map (tap booth A-1)
+- `/kl-food-weekend/street-eats/merchants` — the searchable merchant directory
+- `/kl-food-weekend/street-eats/favourites` — saved merchants (set the cookie
+  `eventos_vid=seed-demo-visitor` to see the seeded favourite)
 
 ### 4. Optional — Google sign-in
 
@@ -191,7 +195,7 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | 2     | Event management — lifecycle, branding, settings, public pages    | ✅ Complete |
 | 3     | Merchant onboarding — portal, listings, products, approval        | ✅ Complete |
 | 4     | Booths and maps — zones, floor plans, assignment, interactive map | ✅ Complete |
-| 5     | Visitor experience                                                | Next        |
-| 6     | Monetization                                                      |             |
+| 5     | Visitor experience — directory search, favourites, recently-viewed, PWA | ✅ Complete |
+| 6     | Monetization                                                      | Next        |
 | 7     | Analytics                                                         |             |
 | 8     | Vouchers and campaigns                                            |             |
