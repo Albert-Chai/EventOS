@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 0 (Foundation) — see [docs/phase-0-plan.md](docs/phase-0-plan.md)
+- **Current phase:** Phase 1 complete (multi-tenant platform) — see [docs/phase-1-plan.md](docs/phase-1-plan.md); next is Phase 2 (events)
 
 ---
 
@@ -72,13 +72,16 @@ build rather than the first request.
 
 ```bash
 pnpm install
-pnpm db:migrate    # creates profiles + the auth triggers
-pnpm db:seed       # 5 development accounts
+pnpm db:migrate    # profiles, tenants, roles, audit — all migrations
+pnpm db:seed       # 5 accounts, a platform admin, and a demo workspace
 pnpm dev
 ```
 
-Open http://localhost:3000 and sign in with `organizer.owner@eventos.test` /
-`eventos-dev-password`.
+Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
+
+- `organizer.owner@eventos.test` — owner of the demo workspace
+- `organizer.staff@eventos.test` — event manager in it (fewer permissions)
+- `platform.admin@eventos.test` — platform admin → `/platform`
 
 ### 4. Optional — Google sign-in
 
@@ -169,14 +172,14 @@ configured; otherwise it emits a warning saying the tests were skipped.
 
 ## Roadmap
 
-| Phase | Scope                                             | Status      |
-| ----- | ------------------------------------------------- | ----------- |
-| 0     | Foundation — auth, database, CI, API contract     | ✅ Complete |
-| 1     | Multi-tenant platform — tenants, RBAC, audit logs | Next        |
-| 2     | Event management                                  |             |
-| 3     | Merchant onboarding                               |             |
-| 4     | Booths and maps                                   |             |
-| 5     | Visitor experience                                |             |
-| 6     | Monetization                                      |             |
-| 7     | Analytics                                         |             |
-| 8     | Vouchers and campaigns                            |             |
+| Phase | Scope                                                            | Status      |
+| ----- | ---------------------------------------------------------------- | ----------- |
+| 0     | Foundation — auth, database, CI, API contract                    | ✅ Complete |
+| 1     | Multi-tenant platform — tenants, RBAC, audit logs, impersonation | ✅ Complete |
+| 2     | Event management                                                 | Next        |
+| 3     | Merchant onboarding                                              |             |
+| 4     | Booths and maps                                                  |             |
+| 5     | Visitor experience                                               |             |
+| 6     | Monetization                                                     |             |
+| 7     | Analytics                                                        |             |
+| 8     | Vouchers and campaigns                                           |             |

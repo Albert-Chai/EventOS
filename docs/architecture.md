@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 0. Update this file whenever the shape changes
+Current as of Phase 1. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -162,20 +162,44 @@ form-driven, and they work before JavaScript hydrates.
 | Secret/client boundary            | ✅ enforced at build time by `@t3-oss/env-nextjs`                  |
 | SQL injection                     | ✅ Drizzle parameterised queries only                              |
 | PostgREST exposure                | ✅ revoked on `public.profiles`; repeat for every new table        |
-| Rate limiting                     | ❌ Phase 1 (needs Redis). Supabase auth limits apply meanwhile     |
-| Audit logging                     | ❌ Phase 1                                                         |
-| Recent-auth for sensitive actions | ❌ Phase 1                                                         |
+| Audit logging                     | ✅ append-only `audit_logs`, written by the service layer          |
+| Rate limiting                     | ❌ needs Redis. Supabase auth limits apply meanwhile               |
+| Recent-auth for sensitive actions | ❌ deferred                                                        |
 
 ---
 
-## 8. What Phase 1 changes
+## 8. Phase 1 — multi-tenant platform (shipped)
 
-- `RequestContext` gains `tenant`, `permissions`, `isPlatformAdmin`.
-- `requireTenant()` and `requirePermission()` join `requireUser()` in `policies/`.
-- Every repository function takes an `AuthenticatedContext` and filters on
-  `tenant_id`.
-- `audit_logs` is written by the service layer after every state-changing action.
-- Rate limiting arrives with Redis.
+`RequestContext` (`src/server/context.ts`) now carries `isPlatformAdmin`, the
+active `tenant`, the caller's `permissions` within it, all `memberships` (for
+the switcher), and any `impersonation`. Resolved once per request in
+`src/server/auth/session.ts`:
 
-No call site above the policy layer should need to change — that is what the
-Phase 0 seam is for.
+```
+getRequestContext
+  ├─ getCurrentUser()                     (Supabase, revalidated)
+  ├─ isPlatformAdmin(user)                platform_admins
+  ├─ listMembershipsForUser(user)         → switcher + default tenant
+  ├─ resolveImpersonation()               live session? → overlay tenant, owner perms
+  └─ resolveActiveTenant()                validated cookie → tenant + permissions
+```
+
+Two authority axes, gated in `policies/require-user.ts`: **tenant** permissions
+(`requirePermission`) and **platform** admin (`requirePlatformAdmin`).
+Permissions are code (`authz/permissions.ts` + `authz/roles.ts`); the database
+stores only which roles a member holds.
+
+Isolation is proven, not asserted: `tests/integration/tenant-isolation.test.ts`
+runs against Postgres. Every mutating service writes to the append-only
+`audit_logs`. Impersonation is a server-side, time-boxed, actor-matched overlay
+with a persistent banner.
+
+The Phase 0 promise held: nothing above the policy layer changed to add all of
+this — the seam absorbed it.
+
+### What Phase 2 changes
+
+- `events` and friends arrive as the first tenant-scoped _domain_ tables; the
+  repository pattern (derive `tenant_id` from `ctx.tenant.id`) applies unchanged.
+- Event-level permissions (`event.create`, `event.publish`, …) are already
+  defined and mapped to roles; Phase 2 wires their enforcement.

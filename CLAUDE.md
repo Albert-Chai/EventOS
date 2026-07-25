@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 0 complete.** Next: Phase 1 (multi-tenant platform).
+Current state: **Phase 1 complete** (multi-tenant platform). Next: Phase 2 (event management).
 
 ---
 
@@ -26,9 +26,13 @@ That choice puts the whole burden on these rules. They are not style preferences
    enforces this — if you find yourself adding an exception, you are about to
    bypass tenant scoping.
 
-3. **Every tenant-scoped query filters on `tenant_id`.** From Phase 1, every
-   repository function takes an `AuthenticatedContext` and derives the predicate
-   from it. A query without that predicate is a data breach, not a bug.
+3. **Every tenant-scoped query filters on `tenant_id`.** Tenant-scoped repository
+   functions take a `tenantId` the caller derived from `ctx.tenant.id` (via
+   `requireTenant`/`requirePermission`), never a client value. User-scoped
+   queries that _produce_ a tenant id (`listMembershipsForUser`,
+   `findMembershipWithRoles`) key on the authenticated user. A tenant-scoped
+   query without the predicate is a data breach, not a bug — the integration
+   test in `tests/integration/tenant-isolation.test.ts` guards this.
 
 4. **The Supabase anon client is for auth only.** Never read application data
    with it. With RLS off, PostgREST access to our tables is revoked at the
@@ -64,12 +68,32 @@ app/ · features/          UI and route entry points
 
 ## 3. Authorization
 
+Two independent axes (`src/server/policies/require-user.ts`):
+
+1. **Tenant authority** — `ctx.permissions` (a `Set<Permission>`) within the
+   active tenant. Gate with `requirePermission("tenant.manage_members")` in
+   actions/routes, `requirePermissionOrRedirect(...)` in pages.
+2. **Platform authority** — `ctx.isPlatformAdmin` (boolean, from the
+   `platform_admins` table). Gate with `requirePlatformAdmin()` /
+   `requirePlatformAdminOrRedirect(...)`. It is NOT a permission and NOT a tenant
+   role.
+
+Rules:
+
+- Permissions are **code, not data**: the union lives in
+  `src/server/authz/permissions.ts`, the role→permission map in `roles.ts`. The
+  DB stores which roles a member has (`tenant_member_roles`), not what they mean.
+  The `permissions`/`role_permissions` tables from the schema sketch are
+  intentionally not created.
 - The `proxy.ts` route guard is a **UX redirect**, not a security boundary.
-- The real check is `requireUser()` / `requireUserOrRedirect()` server-side, and
-  from Phase 1 `requirePermission()`.
-- Never rely on hiding a button (spec §14).
-- Sensitive actions (billing, API keys, domains, exports, impersonation) require
-  recent authentication (spec §20). Not yet implemented — Phase 1.
+- Never rely on hiding a button (spec §14) — every page that hides a nav item
+  re-checks with a policy, and the Server Action it submits to re-checks again.
+- **Impersonation** (`src/server/services/impersonation.service.ts`): platform
+  admin only, server-side session, time-boxed (30 min), actor-matched on every
+  request, and always visibly bannered. `ctx.user` stays the admin, so audit
+  records the real actor with `via_impersonation`.
+- Still deferred to a later phase: recent-auth (re-auth) for the most sensitive
+  actions, and application rate limiting (needs Redis).
 
 ---
 
@@ -84,8 +108,12 @@ app/ · features/          UI and route entry points
   schema files — see the comment block in `schema/profiles.ts` for why.
 - Migrations run against `DIRECT_DATABASE_URL` (port 5432). The app runs against
   `DATABASE_URL` (pooler, 6543, `prepare: false`).
-- Every table added from Phase 1 on carries `tenant_id`, `created_at`,
-  `updated_at`, and the `set_updated_at` trigger.
+- Every tenant-scoped table carries `tenant_id`, `created_at`, `updated_at`, and
+  the `set_updated_at` trigger — and **every new table repeats the
+  `REVOKE ALL … FROM anon, authenticated`** in its migration (that revoke is what
+  makes "no RLS" safe, not just intentional).
+- `audit_logs` is append-only, enforced by a DB trigger. Write to it only through
+  `recordAudit(ctx, …)`; every state-changing service action must audit (spec §23).
 
 ---
 
@@ -111,8 +139,8 @@ app/ · features/          UI and route entry points
   `*session*`, `*credential*`, `authorization`, `cookie`, or `*key`. Add to that
   list before logging a new sensitive field, not after.
 
-**Known gap:** application-level rate limiting is not implemented (needs Redis,
-Phase 1). Supabase's built-in auth limits apply in the meantime.
+**Known gap:** application-level rate limiting is not implemented (needs Redis).
+Supabase's built-in auth limits apply in the meantime.
 
 ---
 

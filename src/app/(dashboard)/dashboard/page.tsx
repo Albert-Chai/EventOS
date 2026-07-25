@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getOrCreateProfile } from "@/server/services/profile.service";
+import { ROLES } from "@/server/authz/roles";
 import { requireUserOrRedirect } from "@/server/policies/require-user";
 
 export const metadata: Metadata = {
@@ -10,42 +13,58 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Phase 1 replaces this with the organizer dashboard proper (spec §18). */
 export default async function DashboardPage() {
   const ctx = await requireUserOrRedirect("/dashboard");
-  const profile = await getOrCreateProfile(ctx);
+
+  // No membership yet → the dedicated empty state.
+  if (!ctx.tenant) redirect("/dashboard/no-workspace");
+
+  const roleNames = ctx.tenant.roleKeys.map((key) => ROLES[key]?.name ?? key);
 
   return (
-    <div className="mx-auto grid max-w-3xl gap-6">
+    <div className="grid gap-6">
       <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome{profile.displayName ? `, ${profile.displayName}` : ""}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">{ctx.tenant.name}</h1>
+          {ctx.tenant.status === "suspended" ? (
+            <Badge variant="destructive">Suspended</Badge>
+          ) : null}
+        </div>
         <p className="text-muted-foreground text-sm">
-          Signed in as {profile.email}
-          {ctx.user.emailVerified ? "" : " — email not yet verified"}
+          Signed in as {ctx.user.email}
+          {roleNames.length > 0 ? ` · ${roleNames.join(", ")}` : ""}
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle as="h2">Foundation complete</CardTitle>
-            <Badge variant="secondary">Phase 0</Badge>
+            <CardTitle as="h2">Multi-tenant platform ready</CardTitle>
+            <Badge variant="secondary">Phase 1</Badge>
           </div>
           <CardDescription>
-            Authentication, database, migrations, logging, and the API contract are in place.
+            Workspaces, roles, team management, audit logging, and support tooling are in place.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-muted-foreground grid gap-2 text-sm">
-          <p>Next up — Phase 1, the multi-tenant platform:</p>
-          <ul className="list-inside list-disc space-y-1">
-            <li>Tenants and tenant membership</li>
-            <li>Roles and permissions</li>
-            <li>Platform admin console</li>
-            <li>Organizer dashboard shell and tenant switcher</li>
-            <li>Audit logs and tenant isolation tests</li>
-          </ul>
+        <CardContent className="grid gap-3 text-sm">
+          <div className="flex flex-wrap gap-3">
+            {ctx.permissions.has("tenant.manage_members") ? (
+              <Link href="/dashboard/team" className={buttonVariants({ size: "sm" })}>
+                Manage team
+              </Link>
+            ) : null}
+            {ctx.permissions.has("settings.manage") ? (
+              <Link
+                href="/dashboard/settings"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                Workspace settings
+              </Link>
+            ) : null}
+          </div>
+          <p className="text-muted-foreground">
+            Next up — Phase 2: event creation, branding, and publishing.
+          </p>
         </CardContent>
       </Card>
     </div>

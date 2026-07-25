@@ -13,9 +13,15 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
-import { sql as raw } from "drizzle-orm";
+import { eq, sql as raw } from "drizzle-orm";
 
-import { profiles } from "../src/server/db/schema";
+import {
+  platformAdmins,
+  profiles,
+  tenantMemberRoles,
+  tenantMembers,
+  tenants,
+} from "../src/server/db/schema";
 
 config({ path: ".env.local", quiet: true });
 config({ path: ".env", quiet: true });
@@ -95,7 +101,10 @@ async function main() {
   });
 
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
-  const db = drizzle(sql, { schema: { profiles } });
+  const db = drizzle(sql, {
+    schema: { profiles, tenants, tenantMembers, tenantMemberRoles, platformAdmins },
+  });
+  const userIds = new Map<string, string>();
 
   try {
     console.log("Seeding users...\n");
@@ -131,6 +140,7 @@ async function main() {
       console.log(
         `  ${existed ? "=" : "+"} ${user.email.padEnd(34)} (${existed ? "exists" : "created"})`,
       );
+      userIds.set(user.email, userId);
 
       // The on_auth_user_created trigger normally does this; upsert anyway so
       // the seed also repairs a database migrated after its users were made.
@@ -143,18 +153,71 @@ async function main() {
         });
     }
 
+    // --- Phase 1: platform admin + a demo tenant with its owner --------------
+    console.log("\nSeeding platform + tenant...\n");
+
+    const platformAdminId = userIds.get("platform.admin@eventos.test")!;
+    await db
+      .insert(platformAdmins)
+      .values({ userId: platformAdminId, note: "Seeded platform administrator" })
+      .onConflictDoNothing({ target: platformAdmins.userId });
+    console.log("  + platform.admin@eventos.test        (platform admin)");
+
+    const demoSlug = "kl-food-weekend";
+    const [existingTenant] = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.slug, demoSlug))
+      .limit(1);
+    const tenant =
+      existingTenant ??
+      (
+        await db
+          .insert(tenants)
+          .values({
+            name: "Kuala Lumpur Food Discovery Weekend",
+            slug: demoSlug,
+            contactEmail: "organizer.owner@eventos.test",
+            createdBy: platformAdminId,
+          })
+          .returning()
+      )[0];
+    console.log(
+      `  ${existingTenant ? "=" : "+"} ${tenant.name} (${existingTenant ? "exists" : "created"})`,
+    );
+
+    // Owner + one staff member so the switcher and role logic have real data.
+    const memberSeeds: Array<{ email: string; roleKey: string }> = [
+      { email: "organizer.owner@eventos.test", roleKey: "owner" },
+      { email: "organizer.staff@eventos.test", roleKey: "event_manager" },
+    ];
+    for (const seed of memberSeeds) {
+      const userId = userIds.get(seed.email)!;
+      const [member] = await db
+        .insert(tenantMembers)
+        .values({ tenantId: tenant.id, userId, status: "active", joinedAt: new Date() })
+        .onConflictDoUpdate({
+          target: [tenantMembers.tenantId, tenantMembers.userId],
+          set: { status: "active" },
+        })
+        .returning();
+      await db
+        .insert(tenantMemberRoles)
+        .values({ tenantMemberId: member.id, roleKey: seed.roleKey })
+        .onConflictDoNothing();
+      console.log(`  + ${seed.email.padEnd(34)} (${seed.roleKey})`);
+    }
+
     const [{ count }] = await db.execute<{ count: string }>(
       raw`select count(*)::text as count from profiles`,
     );
 
-    console.log(`\nDone. ${count} profile(s) in the database.`);
+    console.log(`\nDone. ${count} profile(s), 1 tenant, 1 platform admin.`);
     console.log(`Password for every seeded account: ${SEED_PASSWORD}`);
-    console.log("\nStill to come, as their phases land (spec §38):");
-    console.log("  Phase 1 — tenants, memberships, roles");
-    console.log("  Phase 2 — events");
-    console.log("  Phase 3 — merchants, listing items");
-    console.log("  Phase 4 — zones, booths, maps");
-    console.log("  Phase 7 — analytics events");
+    console.log("\nSign in as:");
+    console.log("  platform.admin@eventos.test   → /platform (platform admin)");
+    console.log("  organizer.owner@eventos.test  → owner of Kuala Lumpur Food Discovery Weekend");
+    console.log("  organizer.staff@eventos.test  → event manager in that workspace");
   } finally {
     await sql.end();
   }

@@ -104,7 +104,10 @@ test.describe("full sign-in journey", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("heading", { name: /Welcome/ })).toBeVisible();
+    // The seeded owner lands in their workspace; the authenticated shell shows
+    // the sign-out control. (Phase 1 replaced the old "Welcome" heading with the
+    // workspace name.)
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL("/");

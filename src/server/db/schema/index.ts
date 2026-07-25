@@ -1,8 +1,15 @@
 /**
  * Drizzle schema barrel.
  *
- * Phase 0 has one table. Phase 1 adds tenants, memberships, roles, permissions,
- * and audit_logs; every tenant-scoped table added from then on carries a
- * `tenant_id` column (spec §5) — no exceptions.
+ * Phase 0: profiles.
+ * Phase 1: the multi-tenant core — tenants, membership, roles, platform admins,
+ * audit logs, impersonation. Every tenant-scoped table here carries `tenant_id`
+ * (spec §5) and is reachable only through the repository layer.
  */
 export * from "./profiles";
+export * from "./tenants";
+export * from "./roles";
+export * from "./members";
+export * from "./platform";
+export * from "./audit";
+export * from "./impersonation";

@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 0.
+Current as of Phase 1.
 
 ---
 
@@ -82,12 +82,14 @@ pnpm db:generate     # writes drizzle/NNNN_*.sql
 pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 ```
 
-| File                             | Kind                                                                      |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `drizzle/0000_init.sql`          | Generated — `profiles`                                                    |
-| `drizzle/0001_auth_triggers.sql` | **Hand-written** — FK to `auth.users`, expression index, triggers, grants |
+| File                                       | Kind                                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `drizzle/0000_init.sql`                    | Generated — `profiles`                                                                                 |
+| `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                              |
+| `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                |
+| `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed |
 
-`_journal.json` lists both; hand-written files must be added to it manually.
+`_journal.json` lists all four; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -104,9 +106,7 @@ partial indexes, grants, and views.
 
 ---
 
-## 5. Conventions for tables added from Phase 1
-
-Every table:
+## 5. Conventions for every new table
 
 - `id uuid` primary key (spec §12)
 - `created_at`, `updated_at` timestamptz, plus `deleted_at` where soft deletion
@@ -115,6 +115,22 @@ Every table:
   the leading column of any composite index used by list queries
 - `REVOKE ALL … FROM anon, authenticated` in the same migration
 - the `set_updated_at` trigger
+
+### Phase 1 additions
+
+`tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`,
+`roles`, `platform_admins`, `audit_logs`, `impersonation_sessions`. Notes:
+
+- **Permissions are code, not tables.** `roles` is seeded (the 8 system roles);
+  `tenant_member_roles` links a member to role keys. The role→permission map is
+  `src/server/authz/roles.ts`. `permissions`/`role_permissions` tables are
+  deliberately absent — they would duplicate the code and drift.
+- **`audit_logs` is append-only**, enforced by the `reject_mutation()` trigger:
+  UPDATE and DELETE raise. `actor_user_id` is `ON DELETE SET NULL` and there is
+  no FK on `tenant_id`, so the trail outlives both users and tenants.
+- **`platform_admins`** is a distinct authority axis, separate from membership.
+- Tenant slug uniqueness is a partial expression index (`lower(slug)` where not
+  soft-deleted), so a deleted tenant's slug can be reused.
 
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
@@ -130,26 +146,28 @@ the frontend label changes with the event type, the table name does not.
 pnpm db:seed
 ```
 
-Creates five confirmed accounts (password `eventos-dev-password`) and their
-profiles. Idempotent. Refuses to run when `NODE_ENV=production` or when the
-connection string looks like production.
+Creates five confirmed accounts (password `eventos-dev-password`), a platform
+admin (`platform.admin@eventos.test`), and a demo tenant (Kuala Lumpur Food
+Discovery Weekend) owned by `organizer.owner@eventos.test` with
+`organizer.staff@eventos.test` as an event manager. Idempotent. Refuses to run
+when `NODE_ENV=production` or when the connection string looks like production.
 
-Phase 0 seeds only auth users and profiles — the tenants, events, merchants,
-booths, and analytics rows in spec §38 are added as their phases land.
+Events, merchants, booths, and analytics rows in spec §38 are added as their
+phases land.
 
 ---
 
 ## 7. Roadmap
 
-| Phase | Tables                                                                                                         |
-| ----- | -------------------------------------------------------------------------------------------------------------- |
-| 1     | `tenants`, `tenant_members`, `roles`, `permissions`, `role_permissions`, `tenant_member_roles`, `audit_logs`   |
-| 2     | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                          |
-| 3     | `merchants`, `merchant_event_participations`, `listing_items`, `merchant_categories`, `imports`, `import_rows` |
-| 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                   |
-| 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                       |
-| 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                   |
-| 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`              |
-| 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                              |
+| Phase | Tables                                                                                                                                       |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 ✅  | `tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`, `roles`, `platform_admins`, `audit_logs`, `impersonation_sessions` |
+| 2     | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                        |
+| 3     | `merchants`, `merchant_event_participations`, `listing_items`, `merchant_categories`, `imports`, `import_rows`                               |
+| 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                 |
+| 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                     |
+| 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                 |
+| 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                            |
+| 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                            |
 
 Full target list: spec §12.

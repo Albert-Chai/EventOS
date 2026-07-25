@@ -8,6 +8,7 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     // Playwright specs use their own runner; Vitest would try to execute them.
     exclude: ["tests/e2e/**", "node_modules/**"],
+    setupFiles: ["tests/setup/load-env.ts"],
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/server/**", "src/config/**", "src/features/**"],

@@ -15,6 +15,20 @@
       "when": 1784880396617,
       "tag": "0001_auth_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784942150677,
+      "tag": "0002_multitenant",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784942150678,
+      "tag": "0003_multitenant_constraints",
+      "breakpoints": true
     }
   ]
 }

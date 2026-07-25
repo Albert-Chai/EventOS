@@ -254,6 +254,10 @@ export async function resetPasswordAction(
 
 export async function signOutAction(): Promise<void> {
   const supabase = await createServerSupabaseClient();
-  await supabase.auth.signOut();
+  // Local scope: sign out of *this* device only, not every session everywhere.
+  // Signing out on one browser should not revoke your other devices — and the
+  // global default would also let one session's sign-out kill another's
+  // mid-request. Session-wide revocation is a separate, deliberate action.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/");
 }
