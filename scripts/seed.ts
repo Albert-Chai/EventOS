@@ -39,6 +39,40 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * Supabase's auth API intermittently rejects a valid secret key with
+ * `bad_jwt` / "unrecognized JWT kid <nil> for algorithm ES256" — observed at
+ * roughly one call in three against a project using the new asymmetric signing
+ * keys. The same call succeeds on retry, so it is a transient fault on their
+ * side rather than a credential problem.
+ *
+ * Retried here rather than reported, because a seed that dies a third of the
+ * way through is worse than a seed that takes an extra second.
+ */
+const TRANSIENT = /bad_jwt|unrecognized JWT kid|token is unverifiable|5\d\d/i;
+
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 5): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!TRANSIENT.test(message) || attempt === attempts) break;
+
+      const backoffMs = 250 * 2 ** (attempt - 1);
+      console.log(
+        `    ↻ ${label}: transient error, retrying in ${backoffMs}ms (${attempt}/${attempts - 1})`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  throw lastError;
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production") {
     console.error("Refusing to seed a production environment.");
@@ -47,7 +81,7 @@ async function main() {
 
   const databaseUrl = requireEnv("DIRECT_DATABASE_URL");
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKey = requireEnv("SUPABASE_SECRET_KEY");
 
   // Extra guard: the service role key can wipe a project, so make it hard to
   // point this at anything but a development database by accident.
@@ -69,32 +103,40 @@ async function main() {
     for (const user of USERS) {
       // createUser is idempotent-by-error: an existing address returns a
       // duplicate error rather than a row, so fall back to a lookup.
-      const { data: created, error } = await supabase.auth.admin.createUser({
-        email: user.email,
-        password: SEED_PASSWORD,
-        email_confirm: true,
-        user_metadata: { display_name: user.displayName, seed_role: user.role },
+      const { userId, existed } = await withRetry(user.email, async () => {
+        const { data, error } = await supabase.auth.admin.createUser({
+          email: user.email,
+          password: SEED_PASSWORD,
+          email_confirm: true,
+          user_metadata: { display_name: user.displayName, seed_role: user.role },
+        });
+
+        if (!error) return { userId: data.user!.id, existed: false };
+
+        // Anything that is not a duplicate — including the transient JWT
+        // fault — is rethrown so withRetry can decide whether to retry.
+        if (!/already been registered|already exists/i.test(error.message)) throw error;
+
+        const { data: list, error: listError } = await supabase.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        if (listError) throw listError;
+
+        const found = list.users.find((candidate) => candidate.email === user.email);
+        if (!found) throw new Error(`Could not resolve existing user ${user.email}`);
+        return { userId: found.id, existed: true };
       });
 
-      let userId = created?.user?.id;
-
-      if (error) {
-        if (!/already been registered|already exists/i.test(error.message)) {
-          throw error;
-        }
-        const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        userId = list?.users.find((candidate) => candidate.email === user.email)?.id;
-        if (!userId) throw new Error(`Could not resolve existing user ${user.email}`);
-        console.log(`  = ${user.email.padEnd(34)} (exists)`);
-      } else {
-        console.log(`  + ${user.email.padEnd(34)} (created)`);
-      }
+      console.log(
+        `  ${existed ? "=" : "+"} ${user.email.padEnd(34)} (${existed ? "exists" : "created"})`,
+      );
 
       // The on_auth_user_created trigger normally does this; upsert anyway so
       // the seed also repairs a database migrated after its users were made.
       await db
         .insert(profiles)
-        .values({ id: userId!, email: user.email, displayName: user.displayName })
+        .values({ id: userId, email: user.email, displayName: user.displayName })
         .onConflictDoUpdate({
           target: profiles.id,
           set: { displayName: user.displayName, updatedAt: new Date() },

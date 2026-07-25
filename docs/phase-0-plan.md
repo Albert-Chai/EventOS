@@ -335,35 +335,47 @@ Verified locally on 2026-07-24:
 - [x] `/api/health` reports honest status — verified end-to-end
 - [x] CI runs typecheck, lint, format, test, and build on push and PR
 - [x] Docs written: `CLAUDE.md`, `README.md`, `docs/architecture.md`, `docs/database.md`
-- [ ] **`pnpm db:migrate` applies cleanly** — not run; needs your Supabase project
-- [ ] **`pnpm db:seed` creates the fixtures** — not run; same reason
-- [ ] **Register → confirm → sign in → reset → sign out** — not run; same reason
+      Verified against the live project (`nhrnkfbabzdfpxpqbhhc`, `ap-south-1`) on 2026-07-25:
 
-The last three are the only unverified items. They are blocked on credentials I
-cannot create, not on unwritten code.
+- [x] **`pnpm db:migrate` applies cleanly** — both migrations applied; FK,
+      expression index, triggers, and the anon/authenticated revoke all confirmed
+      in the database
+- [x] **`pnpm db:seed` creates the fixtures** — 5 accounts seeded, idempotent
+- [x] **Sign in → dashboard → sign out** — the live Playwright journey passes;
+      wrong-password returns the generic message
+- [x] **Health probes green against real dependencies** — database 200, storage
+      200 (bucket `eventos-public`), queue `not_configured`
+
+Not exercised: the email-confirmation and password-reset links, which require
+opening a real inbox. The code paths are covered; the round-trip is not.
 
 ## 14. Deviations From the Plan as Written
 
-| Planned                                      | Actual                                 | Why                                                                                                                                 |
-| -------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `src/middleware.ts`                          | `src/proxy.ts`                         | Next 16 renamed the convention                                                                                                      |
-| shadcn `Button asChild`                      | `buttonVariants()` on the link         | This shadcn release is built on Base UI, which has no `asChild`                                                                     |
-| Build uses `SKIP_ENV_VALIDATION` in CI       | CI supplies placeholder values instead | Skipping validation left URLs undefined and broke `metadataBase`; supplying placeholders means CI actually exercises the env schema |
-| E2E on port 3000                             | Port 3100                              | `reuseExistingServer` attached to an unrelated app already on 3000 and produced twelve bogus failures                               |
-| E2E skip guard on `NEXT_PUBLIC_SUPABASE_URL` | Explicit `E2E_LIVE_SUPABASE=true`      | The build sets a placeholder URL, so presence of the variable proved nothing and the guard did not fire                             |
-| Dark mode via `next-themes`                  | `prefers-color-scheme` only            | No theme toggle in Phase 0; the dependency would be unused (rule 16)                                                                |
+| Planned                                           | Actual                                 | Why                                                                                                                                 |
+| ------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `src/middleware.ts`                               | `src/proxy.ts`                         | Next 16 renamed the convention                                                                                                      |
+| shadcn `Button asChild`                           | `buttonVariants()` on the link         | This shadcn release is built on Base UI, which has no `asChild`                                                                     |
+| Build uses `SKIP_ENV_VALIDATION` in CI            | CI supplies placeholder values instead | Skipping validation left URLs undefined and broke `metadataBase`; supplying placeholders means CI actually exercises the env schema |
+| E2E on port 3000                                  | Port 3100                              | `reuseExistingServer` attached to an unrelated app already on 3000 and produced twelve bogus failures                               |
+| E2E skip guard on `NEXT_PUBLIC_SUPABASE_URL`      | Explicit `E2E_LIVE_SUPABASE=true`      | The build sets a placeholder URL, so presence of the variable proved nothing and the guard did not fire                             |
+| Dark mode via `next-themes`                       | `prefers-color-scheme` only            | No theme toggle in Phase 0; the dependency would be unused (rule 16)                                                                |
+| Node 20                                           | Node 22 (`.nvmrc`)                     | `@supabase/supabase-js` refuses Node 20 (EOL, no native WebSocket); the seed script died on it                                      |
+| Supabase env vars `ANON_KEY` / `SERVICE_ROLE_KEY` | `PUBLISHABLE_KEY` / `SECRET_KEY`       | The project uses Supabase's current `sb_publishable_` / `sb_secret_` keys, not legacy JWTs; validation now rejects a swap           |
+| Singapore region assumed                          | `ap-south-1` (Mumbai)                  | The real project turned out to be in Mumbai; connection strings and docs corrected                                                  |
 
 `CardTitle` also gained an `as` prop so auth pages have a real `<h1>` — a page
 whose only title is a `<div>` has no document outline for a screen reader.
 
-## 15. What You Must Do (I cannot)
+The seed script gained retry-with-backoff: Supabase's auth API intermittently
+returns `bad_jwt` ("unrecognized JWT kid <nil> for ES256") on projects with the
+new asymmetric signing keys — a transient upstream fault that succeeds on retry.
 
-1. Create the Supabase project (Singapore region), create the `eventos-public`
-   storage bucket, and copy the URL, anon key, service role key, and both
-   connection strings into `.env.local`.
-2. Add `http://localhost:3000/auth/callback` to the Supabase redirect allow-list.
-3. Register the Google OAuth client if you want that flow live, then set
+## 15. Phase 0 setup — complete
+
+The project is fully wired and verified. Remaining, all optional:
+
+1. Register the Google OAuth client if you want that flow live, then set
    `AUTH_GOOGLE_ENABLED=true`.
-4. Create the Vercel project and add the environment variables.
-
-Everything up to and including `pnpm build` runs without these.
+2. Add `http://localhost:3000/auth/callback` to the Supabase redirect allow-list
+   (needed before the email-confirmation and OAuth round-trips work locally).
+3. Create the Vercel project and add the environment variables for deployment.

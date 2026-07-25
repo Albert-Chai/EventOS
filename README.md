@@ -28,10 +28,22 @@ night markets, expos, and fairs.
 
 ## Getting started
 
+### Prerequisites
+
+**Node 22+** is required — `@supabase/supabase-js` refuses to run on Node 20
+(EOL since April 2026, no native WebSocket). The repo pins it via `.nvmrc`:
+
+```bash
+nvm install   # reads .nvmrc → Node 22
+nvm use
+corepack enable   # provides pnpm on this Node version
+```
+
 ### 1. Create the Supabase project
 
-1. Create a project at [supabase.com](https://supabase.com). Choose the
-   **Singapore (`ap-southeast-1`)** region — closest to Malaysia.
+1. Create a project at [supabase.com](https://supabase.com), or use an existing
+   one. Note its region — the pooler host in your connection string must match
+   it (this project runs in `ap-south-1`).
 2. **Storage → New bucket** → name it `eventos-public`, mark it public.
 3. **Authentication → URL Configuration** → set the Site URL to
    `http://localhost:3000` and add `http://localhost:3000/auth/callback` to the
