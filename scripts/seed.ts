@@ -13,15 +13,21 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
-import { eq, sql as raw } from "drizzle-orm";
+import { and, eq, sql as raw } from "drizzle-orm";
 
 import {
+  eventBranding,
+  eventOperatingHours,
+  eventSettings,
+  events,
   platformAdmins,
   profiles,
   tenantMemberRoles,
   tenantMembers,
   tenants,
 } from "../src/server/db/schema";
+import type { EventType } from "../src/server/events/event-types";
+import type { EventStatus } from "../src/server/events/status";
 
 config({ path: ".env.local", quiet: true });
 config({ path: ".env", quiet: true });
@@ -102,7 +108,17 @@ async function main() {
 
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
   const db = drizzle(sql, {
-    schema: { profiles, tenants, tenantMembers, tenantMemberRoles, platformAdmins },
+    schema: {
+      profiles,
+      tenants,
+      tenantMembers,
+      tenantMemberRoles,
+      platformAdmins,
+      events,
+      eventSettings,
+      eventBranding,
+      eventOperatingHours,
+    },
   });
   const userIds = new Map<string, string>();
 
@@ -208,16 +224,147 @@ async function main() {
       console.log(`  + ${seed.email.padEnd(34)} (${seed.roleKey})`);
     }
 
+    // --- Phase 2: demo events (one published, one draft) --------------------
+    console.log("\nSeeding events...\n");
+    const ownerId = userIds.get("organizer.owner@eventos.test")!;
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = new Date();
+    const isoDate = (offsetDays: number) =>
+      new Date(now.getTime() + offsetDays * DAY).toISOString().slice(0, 10);
+    const at = (offsetDays: number, hour: number) => {
+      const d = new Date(now.getTime() + offsetDays * DAY);
+      d.setHours(hour, 0, 0, 0);
+      return d;
+    };
+
+    async function ensureEvent(input: {
+      slug: string;
+      name: string;
+      eventType: EventType;
+      status: EventStatus;
+      published: boolean;
+      shortDescription: string;
+      description: string;
+      venueName: string | null;
+      venueAddress: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      startAt: Date | null;
+      endAt: Date | null;
+      theme: string;
+      primaryColor: string;
+      hours: { date: string; opensAt: string; closesAt: string }[];
+    }) {
+      const [existing] = await db
+        .select()
+        .from(events)
+        .where(and(eq(events.tenantId, tenant.id), eq(events.slug, input.slug)))
+        .limit(1);
+      if (existing) {
+        console.log(`  = ${input.name.padEnd(30)} (exists)`);
+        return;
+      }
+
+      const [event] = await db
+        .insert(events)
+        .values({
+          tenantId: tenant.id,
+          name: input.name,
+          slug: input.slug,
+          eventType: input.eventType,
+          status: input.status,
+          shortDescription: input.shortDescription,
+          description: input.description,
+          venueName: input.venueName,
+          venueAddress: input.venueAddress,
+          latitude: input.latitude,
+          longitude: input.longitude,
+          startAt: input.startAt,
+          endAt: input.endAt,
+          publishedAt: input.published ? now : null,
+          createdBy: ownerId,
+        })
+        .returning();
+
+      await db.insert(eventSettings).values({ tenantId: tenant.id, eventId: event.id });
+      await db.insert(eventBranding).values({
+        tenantId: tenant.id,
+        eventId: event.id,
+        theme: input.theme,
+        primaryColor: input.primaryColor,
+      });
+      if (input.hours.length > 0) {
+        await db.insert(eventOperatingHours).values(
+          input.hours.map((h) => ({
+            tenantId: tenant.id,
+            eventId: event.id,
+            date: h.date,
+            opensAt: h.opensAt,
+            closesAt: h.closesAt,
+            isClosed: false,
+          })),
+        );
+      }
+      console.log(`  + ${input.name.padEnd(30)} (${input.status})`);
+    }
+
+    await ensureEvent({
+      slug: "street-eats",
+      name: "KL Street Eats Weekend",
+      eventType: "food_festival",
+      status: "published",
+      published: true,
+      shortDescription: "Three days of the city's best hawker stalls under one roof.",
+      description:
+        "Join us at Central Market for a weekend celebrating Kuala Lumpur's street food. " +
+        "Dozens of stalls, live music, and family-friendly fun from Friday to Sunday.",
+      venueName: "Central Market",
+      venueAddress: "Jalan Hang Kasturi, 50050 Kuala Lumpur",
+      latitude: 3.1427,
+      longitude: 101.6952,
+      startAt: at(14, 17),
+      endAt: at(16, 23),
+      theme: "vibrant",
+      primaryColor: "#c2410c",
+      hours: [
+        { date: isoDate(14), opensAt: "17:00", closesAt: "23:00" },
+        { date: isoDate(15), opensAt: "12:00", closesAt: "23:00" },
+        { date: isoDate(16), opensAt: "12:00", closesAt: "22:00" },
+      ],
+    });
+
+    await ensureEvent({
+      slug: "ramadan-bazaar-trial",
+      name: "Ramadan Bazaar Trial",
+      eventType: "night_market",
+      status: "draft",
+      published: false,
+      shortDescription: "A draft event — not visible to the public yet.",
+      description: "Still being set up. Used to demonstrate that drafts return 404 publicly.",
+      venueName: null,
+      venueAddress: null,
+      latitude: null,
+      longitude: null,
+      startAt: null,
+      endAt: null,
+      theme: "classic",
+      primaryColor: "#0f172a",
+      hours: [],
+    });
+
     const [{ count }] = await db.execute<{ count: string }>(
       raw`select count(*)::text as count from profiles`,
     );
 
-    console.log(`\nDone. ${count} profile(s), 1 tenant, 1 platform admin.`);
+    console.log(`\nDone. ${count} profile(s), 1 tenant, 1 platform admin, 2 events.`);
     console.log(`Password for every seeded account: ${SEED_PASSWORD}`);
     console.log("\nSign in as:");
     console.log("  platform.admin@eventos.test   → /platform (platform admin)");
     console.log("  organizer.owner@eventos.test  → owner of Kuala Lumpur Food Discovery Weekend");
     console.log("  organizer.staff@eventos.test  → event manager in that workspace");
+    console.log("\nPublic pages:");
+    console.log("  /kl-food-weekend               → the workspace's public event index");
+    console.log("  /kl-food-weekend/street-eats   → a published event (draft trial 404s)");
   } finally {
     await sql.end();
   }

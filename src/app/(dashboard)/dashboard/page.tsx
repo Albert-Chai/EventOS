@@ -16,8 +16,10 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const ctx = await requireUserOrRedirect("/dashboard");
 
-  // No membership yet → the dedicated empty state.
-  if (!ctx.tenant) redirect("/dashboard/no-workspace");
+  // No membership yet. A platform admin belongs in the console they run — not an
+  // organizer empty state telling them to await an invitation. Everyone else
+  // gets the dedicated "no workspace" screen.
+  if (!ctx.tenant) redirect(ctx.isPlatformAdmin ? "/platform" : "/dashboard/no-workspace");
 
   const roleNames = ctx.tenant.roleKeys.map((key) => ROLES[key]?.name ?? key);
 
@@ -39,17 +41,26 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle as="h2">Multi-tenant platform ready</CardTitle>
-            <Badge variant="secondary">Phase 1</Badge>
+            <CardTitle as="h2">Event management ready</CardTitle>
+            <Badge variant="secondary">Phase 2</Badge>
           </div>
           <CardDescription>
-            Workspaces, roles, team management, audit logging, and support tooling are in place.
+            Create events, configure and brand them, set operating hours, and publish to a public
+            page.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm">
           <div className="flex flex-wrap gap-3">
+            {ctx.permissions.has("event.view") ? (
+              <Link href="/dashboard/events" className={buttonVariants({ size: "sm" })}>
+                Events
+              </Link>
+            ) : null}
             {ctx.permissions.has("tenant.manage_members") ? (
-              <Link href="/dashboard/team" className={buttonVariants({ size: "sm" })}>
+              <Link
+                href="/dashboard/team"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
                 Manage team
               </Link>
             ) : null}
@@ -63,7 +74,7 @@ export default async function DashboardPage() {
             ) : null}
           </div>
           <p className="text-muted-foreground">
-            Next up — Phase 2: event creation, branding, and publishing.
+            Next up — Phase 3: merchant onboarding, listings, and approvals.
           </p>
         </CardContent>
       </Card>

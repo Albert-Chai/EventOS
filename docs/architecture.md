@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 1. Update this file whenever the shape changes
+Current as of Phase 2. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -197,9 +197,34 @@ with a persistent banner.
 The Phase 0 promise held: nothing above the policy layer changed to add all of
 this — the seam absorbed it.
 
-### What Phase 2 changes
+## 9. Phase 2 — event management (shipped)
 
-- `events` and friends arrive as the first tenant-scoped _domain_ tables; the
-  repository pattern (derive `tenant_id` from `ctx.tenant.id`) applies unchanged.
-- Event-level permissions (`event.create`, `event.publish`, …) are already
-  defined and mapped to roles; Phase 2 wires their enforcement.
+`events` and its satellites (`event_settings`, `event_branding`,
+`event_operating_hours`) are the first tenant-scoped _domain_ tables. The
+repository pattern held unchanged: every read/write derives `tenant_id` from
+`ctx.tenant.id`, and a cross-tenant event id is simply not found. The event-level
+permissions defined in Phase 1 (`event.create/view/update/publish/archive/delete`)
+are now enforced.
+
+- **Status machine** — a pure module (`src/server/events/status.ts`) owns the
+  nine-status lifecycle and its legal transitions, so the rules are unit-tested
+  without a database. The service enforces legality and stamps
+  `published_at`/`archived_at`; the action gates each transition on the permission
+  the target requires (`permissionForTransition`).
+- **Public site** — a new `(public)/[tenantSlug]` route group serves anonymous
+  visitors at `/{tenant-slug}/{event-slug}`, outside the protected prefixes so the
+  proxy never redirects it. `findPublicEvent` is the single guard that keeps
+  drafts off the web: it returns a row only for a `published`/`live`/`ended`,
+  non-`private`, non-deleted event under an active tenant. Everything else is a
+  `404`. The date-derived phase (Upcoming/Live/Ended) is computed in SQL, so no
+  `Date.now()` runs during render.
+- **Isolation proven again** — `tests/integration/event-isolation.test.ts` shows a
+  member of one tenant cannot read or update another's event, slugs are
+  per-tenant, and drafts stay private.
+
+### What Phase 3 changes
+
+- `merchants` and participations arrive; the `merchant_onboarding` /
+  `ready_for_review` event statuses (reachable now) gain their merchant-side
+  workflow, and Storage-backed logo/cover uploads fill the reserved `*_file_id`
+  columns on events and merchants.

@@ -29,6 +29,20 @@
       "when": 1784942150678,
       "tag": "0003_multitenant_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784947110490,
+      "tag": "0004_tense_virginia_dare",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784947110491,
+      "tag": "0005_events_constraints",
+      "breakpoints": true
     }
   ]
 }

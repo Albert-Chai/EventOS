@@ -12,6 +12,7 @@ type NavItem = { href: string; label: string; permission?: Permission };
 
 const ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Overview" },
+  { href: "/dashboard/events", label: "Events", permission: "event.view" },
   { href: "/dashboard/team", label: "Team", permission: "tenant.manage_members" },
   { href: "/dashboard/settings", label: "Settings", permission: "settings.manage" },
   { href: "/dashboard/audit", label: "Audit log", permission: "audit.view" },

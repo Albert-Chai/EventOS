@@ -20,6 +20,10 @@ export default async function NoWorkspacePage() {
   // If they *do* have a workspace, this page is not for them.
   if (ctx.tenant) redirect("/dashboard");
 
+  // A platform admin who reaches here directly runs the platform — this "await
+  // your invitation" copy is for organizers, not them. Send them to the console.
+  if (ctx.isPlatformAdmin) redirect("/platform");
+
   return (
     <div className="mx-auto max-w-lg py-12">
       <Card>

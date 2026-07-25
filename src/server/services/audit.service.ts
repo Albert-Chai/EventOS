@@ -20,6 +20,14 @@ export const AUDIT_ACTIONS = {
   PLATFORM_ADMIN_REVOKED: "platform_admin.revoked",
   IMPERSONATION_STARTED: "user.impersonation_started",
   IMPERSONATION_ENDED: "user.impersonation_ended",
+  EVENT_CREATED: "event.created",
+  EVENT_UPDATED: "event.updated",
+  EVENT_STATUS_CHANGED: "event.status_changed",
+  EVENT_DUPLICATED: "event.duplicated",
+  EVENT_DELETED: "event.deleted",
+  EVENT_SETTINGS_UPDATED: "event.settings_updated",
+  EVENT_BRANDING_UPDATED: "event.branding_updated",
+  EVENT_HOURS_UPDATED: "event.hours_updated",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

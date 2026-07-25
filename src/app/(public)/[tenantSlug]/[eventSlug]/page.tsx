@@ -1,0 +1,139 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { EventPhaseBadge } from "@/features/events/components/event-status-badge";
+import {
+  eventTypeLabel,
+  formatDayLabel,
+  formatEventDates,
+  formatTimeRange,
+  venueMapUrl,
+} from "@/features/events/format";
+import {
+  getEventBranding,
+  getEventSettings,
+  listEventOperatingHours,
+} from "@/server/db/repositories/event-config.repository";
+import { findPublicEvent } from "@/server/db/repositories/events.repository";
+
+type Params = { params: Promise<{ tenantSlug: string; eventSlug: string }> };
+
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { tenantSlug, eventSlug } = await params;
+  const event = await findPublicEvent(tenantSlug, eventSlug);
+  if (!event) return { title: "Event not found", robots: { index: false, follow: false } };
+
+  const index = event.visibility === "public";
+  return {
+    title: `${event.name} · ${event.tenantName}`,
+    description: event.shortDescription ?? undefined,
+    robots: { index, follow: index },
+    openGraph: {
+      title: event.name,
+      description: event.shortDescription ?? undefined,
+      type: "website",
+    },
+  };
+}
+
+export default async function PublicEventPage({ params }: Params) {
+  const { tenantSlug, eventSlug } = await params;
+
+  // The single guard that keeps drafts (and any non-public status) off the public
+  // web: this returns null unless the event is published/live/ended and reachable.
+  const event = await findPublicEvent(tenantSlug, eventSlug);
+  if (!event) notFound();
+
+  const [branding, settings, hours] = await Promise.all([
+    getEventBranding(event.tenantId, event.id),
+    getEventSettings(event.tenantId, event.id),
+    listEventOperatingHours(event.tenantId, event.id),
+  ]);
+
+  const primary = branding?.primaryColor ?? "#0f172a";
+  const mapUrl = venueMapUrl(event.latitude, event.longitude, event.venueAddress);
+  const showHours = (settings?.showOperatingHours ?? true) && hours.length > 0;
+
+  return (
+    <article className="mx-auto w-full max-w-2xl">
+      <header
+        className="px-4 py-10 text-white sm:rounded-b-2xl sm:px-8"
+        style={{ backgroundColor: primary }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
+            {eventTypeLabel(event.eventType)}
+          </span>
+          <EventPhaseBadge phase={event.phase} />
+        </div>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight">{event.name}</h1>
+        <p className="mt-1 text-sm text-white/80">Presented by {event.tenantName}</p>
+        {event.shortDescription ? (
+          <p className="mt-3 text-white/90">{event.shortDescription}</p>
+        ) : null}
+      </header>
+
+      <div className="grid gap-8 px-4 py-8 sm:px-8">
+        <section className="grid gap-3">
+          <div>
+            <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              When
+            </h2>
+            <p className="text-sm">
+              {formatEventDates(event.startAt, event.endAt, event.timezone)}
+            </p>
+          </div>
+          {event.venueName ? (
+            <div>
+              <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                Where
+              </h2>
+              <p className="text-sm">{event.venueName}</p>
+              {event.venueAddress ? (
+                <p className="text-muted-foreground text-sm">{event.venueAddress}</p>
+              ) : null}
+              {mapUrl ? (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm underline underline-offset-4"
+                  style={{ color: primary }}
+                >
+                  Open in maps ↗
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
+        {event.description ? (
+          <section className="grid gap-2">
+            <h2 className="text-lg font-semibold">About</h2>
+            <p className="text-sm whitespace-pre-line">{event.description}</p>
+          </section>
+        ) : null}
+
+        {showHours ? (
+          <section className="grid gap-2">
+            <h2 className="text-lg font-semibold">Opening hours</h2>
+            <ul className="grid gap-1 text-sm">
+              {hours.map((h) => (
+                <li key={h.id} className="flex justify-between border-b py-1.5 last:border-0">
+                  <span>{formatDayLabel(h.date)}</span>
+                  <span className={h.isClosed ? "text-muted-foreground" : ""}>
+                    {formatTimeRange(h.opensAt, h.closesAt, h.isClosed)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <section className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+          Merchant listings and the interactive map arrive soon.
+        </section>
+      </div>
+    </article>
+  );
+}

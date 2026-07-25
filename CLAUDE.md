@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 1 complete** (multi-tenant platform). Next: Phase 2 (event management).
+Current state: **Phase 2 complete** (event management). Next: Phase 3 (merchant onboarding).
 
 ---
 
@@ -42,6 +42,16 @@ That choice puts the whole burden on these rules. They are not style preferences
 5. **The service role client bypasses everything.** It belongs in the seed script
    and, later, explicit platform-admin operations. Never in a code path that
    serves organizer, merchant, or visitor traffic.
+
+6. **Public reads are the one exception, and they filter, they don't scope.**
+   Visitor-facing pages under `app/(public)/[tenantSlug]` serve anonymous traffic,
+   so they can't derive a tenant from membership. They resolve the tenant from the
+   URL slug and return rows only when the content is _publicly_ visible —
+   `findPublicEvent` returns null for any non-`published`/`live`/`ended`,
+   `private`, or soft-deleted event. A draft must be indistinguishable from "not
+   found". Any future public surface (merchant pages in Phase 3, …) follows this
+   same filter-by-public-status shape — never a membership check, never a client
+   `tenant_id`.
 
 If Phase 1 or later adds RLS as defence in depth, these rules still stand — RLS
 would be the second lock, not a replacement for the first.

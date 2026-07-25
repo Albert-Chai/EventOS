@@ -14,9 +14,11 @@ async function signIn(page: Page, email: string) {
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/\/dashboard/);
-  // Let any follow-on redirect (e.g. platform admin → /dashboard/no-workspace)
-  // settle before the test navigates again, so a goto can't abort it mid-flight.
+  // Organizers land on /dashboard; a platform admin with no workspace is routed
+  // straight to /platform. Accept either landing spot.
+  await page.waitForURL(/\/(dashboard|platform)/);
+  // Let any follow-on redirect settle before the test navigates again, so a
+  // goto can't abort it mid-flight.
   await page.waitForLoadState("networkidle");
 }
 

@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 1 complete (multi-tenant platform) — see [docs/phase-1-plan.md](docs/phase-1-plan.md); next is Phase 2 (events)
+- **Current phase:** Phase 2 complete (event management) — see [docs/phase-2-plan.md](docs/phase-2-plan.md); next is Phase 3 (merchants)
 
 ---
 
@@ -72,8 +72,8 @@ build rather than the first request.
 
 ```bash
 pnpm install
-pnpm db:migrate    # profiles, tenants, roles, audit — all migrations
-pnpm db:seed       # 5 accounts, a platform admin, and a demo workspace
+pnpm db:migrate    # profiles, tenants, roles, audit, events — all migrations
+pnpm db:seed       # 5 accounts, a platform admin, a demo workspace, 2 events
 pnpm dev
 ```
 
@@ -82,6 +82,11 @@ Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
 - `organizer.owner@eventos.test` — owner of the demo workspace
 - `organizer.staff@eventos.test` — event manager in it (fewer permissions)
 - `platform.admin@eventos.test` — platform admin → `/platform`
+
+The seeded workspace has a published event and a draft. Their public pages:
+
+- `/kl-food-weekend` — the workspace's public event index
+- `/kl-food-weekend/street-eats` — a published event (the draft `404`s)
 
 ### 4. Optional — Google sign-in
 
@@ -113,7 +118,9 @@ broken flow in the meantime.
 src/
 ├── app/                    routes
 │   ├── (auth)/             sign-in, sign-up, password reset
-│   ├── (dashboard)/        authenticated organizer area
+│   ├── (dashboard)/        authenticated organizer area (events, team, …)
+│   ├── (platform)/         platform-admin console
+│   ├── (public)/           visitor event pages — /{tenant}/{event}
 │   ├── auth/callback/      OAuth + email link exchange
 │   └── api/health/         liveness and readiness probes
 ├── components/
@@ -176,8 +183,8 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | ----- | ---------------------------------------------------------------- | ----------- |
 | 0     | Foundation — auth, database, CI, API contract                    | ✅ Complete |
 | 1     | Multi-tenant platform — tenants, RBAC, audit logs, impersonation | ✅ Complete |
-| 2     | Event management                                                 | Next        |
-| 3     | Merchant onboarding                                              |             |
+| 2     | Event management — lifecycle, branding, settings, public pages   | ✅ Complete |
+| 3     | Merchant onboarding                                              | Next        |
 | 4     | Booths and maps                                                  |             |
 | 5     | Visitor experience                                               |             |
 | 6     | Monetization                                                     |             |

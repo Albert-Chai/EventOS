@@ -23,6 +23,7 @@ export const ERROR_CODES = {
   MERCHANT_NOT_FOUND: { status: 404, message: "The requested merchant was not found." },
   CONFLICT: { status: 409, message: "The resource is in a conflicting state." },
   SLUG_TAKEN: { status: 409, message: "That slug is already in use." },
+  INVALID_STATE_TRANSITION: { status: 409, message: "That status change is not allowed." },
 
   // --- Limits -------------------------------------------------------------
   RATE_LIMITED: { status: 429, message: "Too many requests. Please try again shortly." },

@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 1.
+Current as of Phase 2.
 
 ---
 
@@ -88,8 +88,10 @@ pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 | `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                              |
 | `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                |
 | `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed |
+| `drizzle/0004_tense_virginia_dare.sql`     | Generated — events, event_settings, event_branding, event_operating_hours                              |
+| `drizzle/0005_events_constraints.sql`      | **Hand-written** — events→auth.users FK, per-tenant `lower(slug)` index, triggers, grants              |
 
-`_journal.json` lists all four; hand-written files must be added to it manually.
+`_journal.json` lists all six; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -132,6 +134,23 @@ partial indexes, grants, and views.
 - Tenant slug uniqueness is a partial expression index (`lower(slug)` where not
   soft-deleted), so a deleted tenant's slug can be reused.
 
+### Phase 2 additions
+
+`events` plus three satellites: `event_settings` (1:1 feature toggles),
+`event_branding` (1:1 theme/colours; `*_file_id` upload columns reserved for
+Phase 3), and `event_operating_hours` (1:many per-date). Notes:
+
+- **Event slugs are unique _per tenant_**, not globally — a partial expression
+  index on `(tenant_id, lower(slug)) WHERE deleted_at IS NULL`, because the public
+  URL is `/{tenant-slug}/{event-slug}`. Two organizers may reuse a slug.
+- **`status` is a nine-value union** driven by the machine in
+  `src/server/events/status.ts` (`text`, not a Postgres enum — the set grows). The
+  public site only exposes `published`/`live`/`ended`; drafts are invisible.
+- The satellites cascade on event delete and each carry `tenant_id` (belt and
+  braces: reads are scoped by tenant _and_ event id). Same-schema FKs
+  (`tenant_id → tenants`, `event_id → events`) are in the generated migration;
+  the cross-schema `events.created_by → auth.users` FK is hand-written in 0005.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -149,11 +168,13 @@ pnpm db:seed
 Creates five confirmed accounts (password `eventos-dev-password`), a platform
 admin (`platform.admin@eventos.test`), and a demo tenant (Kuala Lumpur Food
 Discovery Weekend) owned by `organizer.owner@eventos.test` with
-`organizer.staff@eventos.test` as an event manager. Idempotent. Refuses to run
-when `NODE_ENV=production` or when the connection string looks like production.
+`organizer.staff@eventos.test` as an event manager. Phase 2 adds two events under
+that tenant: a **published** one (`street-eats`, public at
+`/kl-food-weekend/street-eats`) and a **draft** (`ramadan-bazaar-trial`, which
+`404`s publicly). Idempotent. Refuses to run when `NODE_ENV=production` or when
+the connection string looks like production.
 
-Events, merchants, booths, and analytics rows in spec §38 are added as their
-phases land.
+Merchants, booths, and analytics rows in spec §38 are added as their phases land.
 
 ---
 
@@ -162,7 +183,7 @@ phases land.
 | Phase | Tables                                                                                                                                       |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 ✅  | `tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`, `roles`, `platform_admins`, `audit_logs`, `impersonation_sessions` |
-| 2     | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                        |
+| 2 ✅  | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                        |
 | 3     | `merchants`, `merchant_event_participations`, `listing_items`, `merchant_categories`, `imports`, `import_rows`                               |
 | 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                 |
 | 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                     |
