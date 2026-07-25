@@ -37,6 +37,7 @@ export const PERMISSIONS = [
   "merchant.approve",
   "merchant.reject",
   "merchant.delete",
+  "merchant.feature",
 
   // Operations (Phases 4, 6, 8)
   "booth.manage",

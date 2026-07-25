@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 5. Update this file whenever the shape changes
+Current as of Phase 6. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -321,3 +321,35 @@ and an installable PWA — all anonymous, all mobile-first at 390px.
   seam across the directory, and every filter; `directory-filters.test.ts` unit-
   covers the param parser; `tests/e2e/visitors.spec.ts` walks search → filter →
   favourite → the favourites page.
+
+## 13. Phase 6 — monetization (shipped)
+
+Plans, enforced usage limits, a simulated upgrade flow, and featured listings.
+
+- **Plans live in code** (`server/billing/plans.ts`) — the metric list, per-tier
+  limits, and entitlements are a typed source of truth (like permissions), and the
+  seed mirrors them into the `plans` catalog the `/platform/plans` page renders.
+  A subscription is one row per tenant; billing is **simulated** (`changePlan`
+  records subscription + a paid invoice + a `billing.plan_changed` audit — no
+  Stripe; `external_ref` reserves the id).
+- **Usage metering covers every §22 metric** (`usage.service`). The four "live"
+  metrics (events, merchants-per-event, team, storage) are counted from their
+  source tables; the event-driven ones are summed from the append-only
+  `usage_records` ledger that later phases write via `recordUsage`. `computeUsage`
+  drives the billing dashboard's usage bars (80% warn, over-limit red).
+- **Enforcement is at the create paths.** `assertWithinLimit` throws
+  `PLAN_LIMIT_REACHED` (402) on the hard metrics — wired into `createEvent`,
+  `addParticipation`, `inviteMember`, and `uploadImage` (storage bytes);
+  `requirePlanFeature` throws `PLAN_FEATURE_REQUIRED` for gated features. Both take
+  a `tenantId` (not `ctx`) so the storage check works from the media path. Not
+  exempt during impersonation — the acting tenant's plan governs.
+- **Featured listings** (`featured.service`, gated by `merchant.feature` +
+  `featured_listings`) write a `featured_placements` row (one open per
+  participation, partial unique index), set the participation's `featured_rank`,
+  and audit. The public directory + event home surface a "★ Featured" badge and
+  the Phase 5 directory boost — no query change needed.
+- **Isolation & math proven** — `tests/integration/billing.test.ts` covers plan
+  resolution, hard-limit enforcement, feature gating, usage computation, and the
+  one-open-placement constraint, all tenant-isolated; `billing-plans.test.ts`
+  unit-covers the limit math; `tests/e2e/billing.spec.ts` walks the simulated
+  upgrade and the public featured badge.

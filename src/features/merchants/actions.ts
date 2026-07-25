@@ -18,6 +18,7 @@ import {
   updateMerchant,
 } from "@/server/services/merchant.service";
 import { addParticipation, reviewParticipation } from "@/server/services/participation.service";
+import { featureMerchant, unfeatureMerchant } from "@/server/services/featured.service";
 import { isParticipationStatus, permissionForReview } from "@/server/merchants/status";
 
 import { categorySchema, inviteMerchantSchema, merchantSchema } from "./schemas";
@@ -221,4 +222,26 @@ export async function reviewParticipationAction(
 
   revalidatePath(`/dashboard/events/${eventId}/merchants`);
   return { status: "success", message: `Listing ${to.replace(/_/g, " ")}.` };
+}
+
+/**
+ * Feature / unfeature a merchant in an event (spec §8.7). Gated by
+ * `merchant.feature`; `featureMerchant` additionally enforces the plan's
+ * `featured_listings` entitlement and audits. Featuring sets the participation's
+ * `featured_rank`, so the public directory boosts it.
+ */
+export async function featureMerchantAction(formData: FormData): Promise<void> {
+  const participationId = formData.get("participationId")?.toString() ?? "";
+  const eventId = formData.get("eventId")?.toString() ?? "";
+  const ctx = await requirePermission("merchant.feature");
+  await featureMerchant(ctx, { eventId, participationId });
+  revalidatePath(`/dashboard/events/${eventId}/merchants`);
+}
+
+export async function unfeatureMerchantAction(formData: FormData): Promise<void> {
+  const participationId = formData.get("participationId")?.toString() ?? "";
+  const eventId = formData.get("eventId")?.toString() ?? "";
+  const ctx = await requirePermission("merchant.feature");
+  await unfeatureMerchant(ctx, { participationId });
+  revalidatePath(`/dashboard/events/${eventId}/merchants`);
 }

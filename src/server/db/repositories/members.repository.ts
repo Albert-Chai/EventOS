@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -216,4 +216,13 @@ export async function countActiveOwners(tenantId: string): Promise<number> {
       ),
     );
   return rows.length;
+}
+
+/** Count of active members in a tenant — the `team_members` plan limit (§22). */
+export async function countMembersForTenant(tenantId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(tenantMembers)
+    .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.status, "active")));
+  return row?.value ?? 0;
 }

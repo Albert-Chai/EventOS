@@ -36,6 +36,7 @@ export function MerchantCard({
   tenantSlug,
   eventSlug,
   favourited,
+  featured = false,
   showFavourite = true,
 }: {
   card: MerchantCardData;
@@ -44,6 +45,8 @@ export function MerchantCard({
   tenantSlug: string;
   eventSlug: string;
   favourited: boolean;
+  /** Currently featured (spec §8.7) — shows a badge. */
+  featured?: boolean;
   showFavourite?: boolean;
 }) {
   const title = card.listingTitle || card.merchantName;
@@ -64,7 +67,14 @@ export function MerchantCard({
           className="size-12 shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{title}</span>
+          <span className="flex items-center gap-1.5">
+            {featured ? (
+              <Badge variant="secondary" className="shrink-0">
+                ★ Featured
+              </Badge>
+            ) : null}
+            <span className="truncate font-medium">{title}</span>
+          </span>
           {card.categoryName ? (
             <span className="text-muted-foreground block text-xs">{card.categoryName}</span>
           ) : null}

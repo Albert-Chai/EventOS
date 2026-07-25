@@ -15,6 +15,7 @@ const ITEMS: NavItem[] = [
   { href: "/dashboard/events", label: "Events", permission: "event.view" },
   { href: "/dashboard/merchants", label: "Merchants", permission: "merchant.view" },
   { href: "/dashboard/team", label: "Team", permission: "tenant.manage_members" },
+  { href: "/dashboard/billing", label: "Billing", permission: "tenant.manage_billing" },
   { href: "/dashboard/settings", label: "Settings", permission: "settings.manage" },
   { href: "/dashboard/audit", label: "Audit log", permission: "audit.view" },
 ];

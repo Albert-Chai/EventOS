@@ -2,17 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { addParticipationAction } from "@/features/merchants/actions";
+import { SubmitButton } from "@/components/forms/submit-button";
+import {
+  addParticipationAction,
+  featureMerchantAction,
+  unfeatureMerchantAction,
+} from "@/features/merchants/actions";
 import { ParticipationStatusBadge } from "@/features/merchants/components/participation-status-badge";
 import { ReviewControls } from "@/features/merchants/components/review-controls";
 import { formatPrice } from "@/features/merchants/format";
+import { planHasFeature } from "@/server/billing/plans";
 import { listItemsForParticipation } from "@/server/db/repositories/listing-items.repository";
 import { listMerchantsForTenant } from "@/server/db/repositories/merchants.repository";
 import { listParticipationsForEvent } from "@/server/db/repositories/participations.repository";
 import { findEventById } from "@/server/db/repositories/events.repository";
 import { requirePermissionOrRedirect } from "@/server/policies/require-user";
+import { listFeaturedParticipationIds } from "@/server/services/featured.service";
+import { getTenantPlan } from "@/server/services/plan.service";
 import type { ParticipationStatus } from "@/server/merchants/status";
 
 export const metadata: Metadata = {
@@ -37,9 +46,11 @@ export default async function EventMerchantsPage({
   const event = await findEventById(ctx.tenant.id, eventId);
   if (!event) notFound();
 
-  const [participations, allMerchants] = await Promise.all([
+  const [participations, allMerchants, featuredIds, { plan }] = await Promise.all([
     listParticipationsForEvent(ctx.tenant.id, eventId),
     listMerchantsForTenant(ctx.tenant.id),
+    listFeaturedParticipationIds(eventId),
+    getTenantPlan(ctx.tenant.id),
   ]);
 
   const itemsByParticipation = new Map(
@@ -54,6 +65,8 @@ export default async function EventMerchantsPage({
   const canAdd = ctx.permissions.has("merchant.create");
   const canReview =
     ctx.permissions.has("merchant.approve") || ctx.permissions.has("merchant.reject");
+  const canFeature = ctx.permissions.has("merchant.feature");
+  const planHasFeatured = planHasFeature(plan, "featured_listings");
 
   return (
     <div className="grid gap-6">
@@ -136,7 +149,10 @@ export default async function EventMerchantsPage({
                         {p.merchantName}
                       </Link>
                     </CardTitle>
-                    <ParticipationStatusBadge status={p.approvalStatus as ParticipationStatus} />
+                    <div className="flex items-center gap-2">
+                      {featuredIds.has(p.id) ? <Badge variant="secondary">★ Featured</Badge> : null}
+                      <ParticipationStatusBadge status={p.approvalStatus as ParticipationStatus} />
+                    </div>
                   </div>
                   {p.listingTitle ? (
                     <CardDescription>{p.listingTitle}</CardDescription>
@@ -171,6 +187,34 @@ export default async function EventMerchantsPage({
                       eventId={eventId}
                       status={p.approvalStatus as ParticipationStatus}
                     />
+                  ) : null}
+
+                  {canFeature && p.approvalStatus === "approved" ? (
+                    featuredIds.has(p.id) ? (
+                      <form action={unfeatureMerchantAction}>
+                        <input type="hidden" name="participationId" value={p.id} />
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <SubmitButton size="sm" variant="outline" pendingText="Removing…">
+                          Remove featured
+                        </SubmitButton>
+                      </form>
+                    ) : planHasFeatured ? (
+                      <form action={featureMerchantAction}>
+                        <input type="hidden" name="participationId" value={p.id} />
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <SubmitButton size="sm" variant="secondary" pendingText="Featuring…">
+                          ★ Feature this merchant
+                        </SubmitButton>
+                      </form>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">
+                        Featured listings are a Growth plan feature.{" "}
+                        <Link href="/dashboard/billing" className="underline">
+                          Upgrade
+                        </Link>
+                        .
+                      </p>
+                    )
                   ) : null}
                 </CardContent>
               </Card>

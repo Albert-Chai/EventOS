@@ -33,6 +33,7 @@ export const ERROR_CODES = {
   // --- Limits -------------------------------------------------------------
   RATE_LIMITED: { status: 429, message: "Too many requests. Please try again shortly." },
   PLAN_LIMIT_REACHED: { status: 402, message: "Your plan limit has been reached." },
+  PLAN_FEATURE_REQUIRED: { status: 402, message: "Your plan does not include this feature." },
 
   // --- Server -------------------------------------------------------------
   INTERNAL_ERROR: { status: 500, message: "Something went wrong on our end." },

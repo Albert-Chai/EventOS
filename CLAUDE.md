@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 5 complete** (visitor experience — directory search, favourites, recently-viewed & PWA). Next: Phase 6.
+Current state: **Phase 6 complete** (monetization — plans, subscriptions, usage limits, simulated billing & featured listings). Next: Phase 7 (analytics).
 
 ---
 
@@ -164,6 +164,15 @@ Rules:
   `src/server/media/storage.ts` (`getUploadBucket`), which never touches a
   `public.*` table — the `files` row is always written through the repository
   layer with a scoped `tenant_id`. Never widen this to read/write our tables.
+
+**Plan limits (Phase 6):** the tenant's plan caps usage (§22). `assertWithinLimit`
+(and `requirePlanFeature`) in `src/server/services/usage.service.ts` gate the
+hard metrics — active events, merchants per event, team members, storage — at
+their create paths and throw `PLAN_LIMIT_REACHED` / `PLAN_FEATURE_REQUIRED` (402).
+Plan definitions (limits + entitlements) are **code** (`src/server/billing/plans.ts`),
+mirrored into the seeded `plans` catalog. Billing is **simulated** (no Stripe):
+`changePlan` records a subscription + a paid invoice + an audit line. This is
+distinct from application rate limiting.
 
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime.

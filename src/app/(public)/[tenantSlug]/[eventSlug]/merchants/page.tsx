@@ -9,6 +9,7 @@ import { hasActiveFilters, parseDirectoryParams } from "@/features/visitors/filt
 import { getEventSettings } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { getDirectoryFacets, searchDirectory } from "@/server/services/directory.service";
+import { listFeaturedParticipationIds } from "@/server/services/featured.service";
 import { listFavouriteParticipationIdsForRead } from "@/server/services/visitor.service";
 
 type Params = { params: Promise<{ tenantSlug: string; eventSlug: string }> };
@@ -40,11 +41,12 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [results, facets, settings, favourites] = await Promise.all([
+  const [results, facets, settings, favourites, featured] = await Promise.all([
     searchDirectory(event.id, parseDirectoryParams(sp)),
     getDirectoryFacets(event.id),
     getEventSettings(event.tenantId, event.id),
     listFavouriteParticipationIdsForRead(event.id),
+    listFeaturedParticipationIds(event.id),
   ]);
 
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
@@ -89,6 +91,7 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
                 tenantSlug={event.tenantSlug}
                 eventSlug={event.slug}
                 favourited={favourites.has(card.participationId)}
+                featured={featured.has(card.participationId)}
                 showFavourite={showFavourite}
               />
             </li>

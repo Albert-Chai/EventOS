@@ -55,6 +55,9 @@ export const AUDIT_ACTIONS = {
   BOOTH_UNASSIGNED: "booth.unassigned",
   FILE_UPLOADED: "file.uploaded",
   FILE_REMOVED: "file.removed",
+  BILLING_PLAN_CHANGED: "billing.plan_changed",
+  MERCHANT_FEATURED: "merchant.featured",
+  MERCHANT_UNFEATURED: "merchant.unfeatured",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

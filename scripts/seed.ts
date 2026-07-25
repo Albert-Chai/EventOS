@@ -34,6 +34,10 @@ import {
   merchants,
   platformAdmins,
   profiles,
+  featuredPlacements,
+  invoices,
+  plans,
+  subscriptions,
   tenantMemberRoles,
   tenantMembers,
   tenants,
@@ -42,6 +46,7 @@ import {
   visitors,
   zones,
 } from "../src/server/db/schema";
+import { PLAN_TIERS, PLANS } from "../src/server/billing/plans";
 import type { EventType } from "../src/server/events/event-types";
 import type { EventStatus } from "../src/server/events/status";
 import { floorPlanPng, solidPng } from "./lib/floorplan-png";
@@ -244,6 +249,78 @@ async function main() {
         .values({ tenantMemberId: member.id, roleKey: seed.roleKey })
         .onConflictDoNothing();
       console.log(`  + ${seed.email.padEnd(34)} (${seed.roleKey})`);
+    }
+
+    // --- Phase 6: the plan catalog + the demo tenant's subscription ----------
+    console.log("\nSeeding plans...\n");
+    for (const key of PLAN_TIERS) {
+      const p = PLANS[key];
+      await db
+        .insert(plans)
+        .values({
+          key: p.key,
+          name: p.name,
+          description: p.description,
+          priceCents: p.priceCents,
+          currency: p.currency,
+          billingInterval: p.billingInterval,
+          limits: p.limits,
+          features: [...p.features],
+          analyticsRetentionDays: p.analyticsRetentionDays,
+          sortOrder: p.sortOrder,
+          isActive: true,
+        })
+        .onConflictDoUpdate({
+          target: plans.key,
+          set: {
+            name: p.name,
+            description: p.description,
+            priceCents: p.priceCents,
+            limits: p.limits,
+            features: [...p.features],
+            analyticsRetentionDays: p.analyticsRetentionDays,
+            sortOrder: p.sortOrder,
+          },
+        });
+    }
+    console.log(`  + ${PLAN_TIERS.length} plans (starter → enterprise)`);
+
+    // The demo tenant subscribes to Growth, so featured listings are unlocked.
+    const [existingSub] = await db
+      .select({ id: subscriptions.id })
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenant.id))
+      .limit(1);
+    if (!existingSub) {
+      const periodStart = new Date();
+      const periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const [sub] = await db
+        .insert(subscriptions)
+        .values({
+          tenantId: tenant.id,
+          planKey: "growth",
+          status: "active",
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          startedAt: periodStart,
+        })
+        .returning();
+      await db.insert(invoices).values({
+        tenantId: tenant.id,
+        subscriptionId: sub.id,
+        planKey: "growth",
+        number: `INV-${tenant.id.slice(0, 8).toUpperCase()}-0001`,
+        amountCents: PLANS.growth.priceCents ?? 0,
+        currency: PLANS.growth.currency,
+        status: "paid",
+        periodStart,
+        periodEnd,
+        paidAt: periodStart,
+        notes: "Initial Growth subscription (seed).",
+      });
+      console.log("  + demo tenant on Growth + 1 paid invoice");
+    } else {
+      console.log("  = subscription (exists)");
     }
 
     // --- Phase 2: demo events (one published, one draft) --------------------
@@ -665,6 +742,31 @@ async function main() {
             .set({ logoFileId: logoFile.id })
             .where(eq(merchants.id, merchant.id));
           console.log("  + merchant logo");
+        }
+
+        // --- Phase 6: feature the demo merchant (idempotent) ------------------
+        const [existingFeatured] = await db
+          .select({ id: featuredPlacements.id })
+          .from(featuredPlacements)
+          .where(eq(featuredPlacements.participationId, participation.id))
+          .limit(1);
+        if (!existingFeatured) {
+          await db.insert(featuredPlacements).values({
+            tenantId: tenant.id,
+            eventId: streetEats.id,
+            participationId: participation.id,
+            merchantId: merchant.id,
+            placementType: "homepage_featured",
+            rankPriority: 100,
+            paymentStatus: "included",
+            createdBy: ownerId,
+            startsAt: now,
+          });
+          await db
+            .update(merchantEventParticipations)
+            .set({ featuredRank: 100 })
+            .where(eq(merchantEventParticipations.id, participation.id));
+          console.log("  + featured placement for Nasi Lemak Bangsar");
         }
 
         // --- Phase 5: a demo visitor with a saved + recently-viewed merchant --

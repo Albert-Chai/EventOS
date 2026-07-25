@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import { files, type FileRecord, type NewFileRecord } from "@/server/db/schema";
@@ -41,4 +41,13 @@ export async function deleteFileRow(tenantId: string, id: string): Promise<FileR
     .where(and(eq(files.id, id), eq(files.tenantId, tenantId)))
     .returning();
   return row ?? null;
+}
+
+/** Total bytes stored by a tenant — the `storage_bytes` plan limit (§22). */
+export async function sumStorageBytesForTenant(tenantId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<string>`coalesce(sum(${files.sizeBytes}), 0)` })
+    .from(files)
+    .where(eq(files.tenantId, tenantId));
+  return Number(row?.value ?? 0);
 }

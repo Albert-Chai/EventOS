@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 5 complete (visitor experience — directory search, favourites & PWA) — see [docs/phase-5-plan.md](docs/phase-5-plan.md); next is Phase 6
+- **Current phase:** Phase 6 complete (monetization — plans, usage limits, simulated billing & featured listings) — see [docs/phase-6-plan.md](docs/phase-6-plan.md); next is Phase 7
 
 ---
 
@@ -85,8 +85,10 @@ Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
 - `merchant.owner@eventos.test` — merchant → `/merchant` (manages Nasi Lemak Bangsar)
 
 The seeded workspace ships a published event with an approved merchant, a floor
-plan, booths, a confirmed booth assignment, and a demo visitor with a saved
-merchant. Public pages:
+plan, booths, a confirmed booth assignment, a demo visitor with a saved merchant,
+and the tenant on the **Growth** plan with that merchant featured. Sign in as
+`organizer.owner@eventos.test` to see `/dashboard/billing` (plan, usage, invoices).
+Public pages:
 
 - `/kl-food-weekend` — the workspace's public event index
 - `/kl-food-weekend/street-eats` — a published event (the draft `404`s)
@@ -196,6 +198,6 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | 3     | Merchant onboarding — portal, listings, products, approval        | ✅ Complete |
 | 4     | Booths and maps — zones, floor plans, assignment, interactive map | ✅ Complete |
 | 5     | Visitor experience — directory search, favourites, recently-viewed, PWA | ✅ Complete |
-| 6     | Monetization                                                      | Next        |
-| 7     | Analytics                                                         |             |
+| 6     | Monetization — plans, usage limits, simulated billing, featured listings | ✅ Complete |
+| 7     | Analytics                                                         | Next        |
 | 8     | Vouchers and campaigns                                            |             |

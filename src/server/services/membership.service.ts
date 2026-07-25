@@ -18,6 +18,7 @@ import {
 } from "@/server/db/repositories/members.repository";
 import type { TenantInvitation } from "@/server/db/schema";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { assertWithinLimit } from "./usage.service";
 
 /**
  * Team membership within a tenant (spec §4.2–4.3, §23). Every mutation is
@@ -56,6 +57,9 @@ export async function inviteMember(
       message: "There is already a pending invitation for that email.",
     });
   }
+
+  // Plan limit: team members per tenant (§22).
+  await assertWithinLimit(ctx.tenant.id, "team_members");
 
   const { token, tokenHash } = generateToken();
   const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);

@@ -17,6 +17,7 @@ import {
   type ParticipationStatus,
 } from "@/server/merchants/status";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { assertWithinLimit } from "./usage.service";
 
 /**
  * The approval workflow (spec §7.2, §8.4). A participation is a merchant's
@@ -54,6 +55,9 @@ export async function addParticipation(
   if (existing) {
     throw new AppError("CONFLICT", { message: "That merchant is already in this event." });
   }
+
+  // Plan limit: merchants per event (§22).
+  await assertWithinLimit(ctx.tenant.id, "merchants_per_event", { eventId });
 
   const participation = await insertParticipation({
     tenantId: ctx.tenant.id,

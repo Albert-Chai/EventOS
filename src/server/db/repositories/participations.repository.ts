@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -312,4 +312,45 @@ function participationColumns() {
     createdAt: merchantEventParticipations.createdAt,
     updatedAt: merchantEventParticipations.updatedAt,
   };
+}
+
+/** How many merchants are attached to an event — the per-event plan limit (§22). */
+export async function countParticipationsForEvent(eventId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(merchantEventParticipations)
+    .where(eq(merchantEventParticipations.eventId, eventId));
+  return row?.value ?? 0;
+}
+
+/** Sets (or clears) a participation's featured rank — the directory boost (§8.7). */
+export async function setParticipationFeaturedRank(
+  tenantId: string,
+  id: string,
+  featuredRank: number | null,
+): Promise<void> {
+  await db
+    .update(merchantEventParticipations)
+    .set({ featuredRank })
+    .where(
+      and(
+        eq(merchantEventParticipations.id, id),
+        eq(merchantEventParticipations.tenantId, tenantId),
+      ),
+    );
+}
+
+/** The busiest event's merchant count for a tenant — the per-event limit's binding value. */
+export async function maxParticipationsForTenant(tenantId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<string>`coalesce(max(c), 0)` })
+    .from(
+      db
+        .select({ c: sql<number>`count(*)`.as("c") })
+        .from(merchantEventParticipations)
+        .where(eq(merchantEventParticipations.tenantId, tenantId))
+        .groupBy(merchantEventParticipations.eventId)
+        .as("per_event"),
+    );
+  return Number(row?.value ?? 0);
 }

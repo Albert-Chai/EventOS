@@ -21,6 +21,7 @@ import type { EventType, EventVisibility } from "@/server/events/event-types";
 import { canTransition, type EventStatus } from "@/server/events/status";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
 import { swapImage, type ImageChange } from "./entity-media.service";
+import { assertWithinLimit } from "./usage.service";
 
 /**
  * Event lifecycle (spec §8.3). Every function is tenant-scoped: the `tenantId`
@@ -79,6 +80,9 @@ export async function createEvent(
   const name = assertName(input.name);
   const slug = resolveSlug(input.slug, name);
   assertDateOrder(input.startAt, input.endAt);
+
+  // Plan limit: active events per tenant (§22).
+  await assertWithinLimit(ctx.tenant.id, "events");
 
   if (await slugExistsForTenant(ctx.tenant.id, slug)) {
     throw new AppError("SLUG_TAKEN", { details: { slug } });

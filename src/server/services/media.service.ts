@@ -14,6 +14,7 @@ import {
   UPLOAD_BUCKET,
 } from "@/server/media/storage";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { assertWithinLimit } from "./usage.service";
 
 /**
  * The media seam (spec §12 `files`, docs/phase-4-plan.md §3). Uploads validate,
@@ -66,6 +67,9 @@ export async function uploadImage(
   if (!extension) {
     throw new AppError("UNSUPPORTED_MEDIA_TYPE", { message: "Unsupported image type." });
   }
+
+  // Plan limit: total storage bytes per tenant (§22).
+  await assertWithinLimit(input.tenantId, "storage_bytes", { delta: input.file.size });
 
   const path = buildObjectPath({
     tenantId: input.tenantId,

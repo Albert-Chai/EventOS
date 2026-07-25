@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 5.
+Current as of Phase 6.
 
 ---
 
@@ -98,8 +98,10 @@ pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 | `drizzle/0009_booths_constraints.sql`      | **Hand-written** — files/assignment→auth.users FKs, `lower(booth_number)` + "one active assignment" partial indexes, triggers, grants |
 | `drizzle/0010_organic_psynapse.sql`        | Generated — visitors, visitor_favourites, visitor_recent_views (+ FKs to tenants/events/participations/merchants)                     |
 | `drizzle/0011_visitors_constraints.sql`    | **Hand-written** — `visitors.user_id → auth.users` (SET NULL) FK, triggers on visitors + visitor_recent_views, grants                 |
+| `drizzle/0012_awesome_blur.sql`            | Generated — plans, subscriptions, invoices, usage_records, featured_placements (+ FKs to tenants/events/participations/merchants/plans) |
+| `drizzle/0013_monetization_constraints.sql`| **Hand-written** — `featured_placements.created_by → auth.users` (SET NULL) FK, the "one open placement" partial unique index, triggers on plans/subscriptions/invoices/featured_placements, grants |
 
-`_journal.json` lists all twelve; hand-written files must be added to it manually.
+`_journal.json` lists all fourteen; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -233,6 +235,33 @@ Notes:
 - `visitor_favourites` has **no `updated_at`** (rows are insert/delete only), so it
   carries no `set_updated_at` trigger; `visitors` and `visitor_recent_views` do.
 
+### Phase 6 additions
+
+Monetization: `plans`, `subscriptions`, `invoices`, `usage_records`,
+`featured_placements`. Notes:
+
+- **`plans` is a platform catalog, not tenant-scoped** — the natural key is `key`
+  (`starter` … `enterprise`), like `roles`. `limits` is a `jsonb` `{ metric:
+  number }` map (an omitted metric ⇒ unlimited) and `features` a `text[]` of
+  entitlement keys. The **source of truth is code** (`server/billing/plans.ts`);
+  the seed writes the rows and enforcement reads the code definitions.
+- **`subscriptions` is one row per tenant** (`unique(tenant_id)`), referencing a
+  plan by `plan_key`. A plan change updates it; `invoices` keep the history.
+  `external_ref` reserves the Stripe id (billing is simulated — no Stripe).
+- **`invoices`** snapshot `amount_cents` + `plan_key` so a later price edit never
+  rewrites past invoices; `number` is globally unique.
+- **`usage_records` is an append-only ledger** (created_at only, no
+  updated_at/trigger) written by `recordUsage` for the event-driven §22 metrics
+  (email/SMS/push/QR/API/vouchers). The four "live" metrics (events, merchants,
+  team, storage) are **counted from their source tables**, never recorded here.
+- **`featured_placements`** (tenant + event scoped): a null `ends_at` = the open
+  (currently-featured) placement, enforced by a partial unique index
+  (`WHERE ends_at IS NULL`); unfeaturing sets `ends_at` (keeps history). Granting
+  is gated by the plan's `featured_listings` entitlement and sets the
+  participation's `featured_rank`, which the Phase 5 directory already orders by.
+- Cross-schema `auth.users` FK (`featured_placements.created_by`) is hand-written
+  in 0013; every table repeats the `REVOKE ALL … FROM anon, authenticated`.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -260,8 +289,11 @@ floor plan, two zones, five booths, and a confirmed assignment (Nasi Lemak Bangs
 in booth A-1), plus a seeded merchant logo — exercising the media pass end to end.
 Phase 5 adds a demo `visitors` row (`anonymous_id = seed-demo-visitor`) with one
 favourite and one recent view; set the cookie `eventos_vid=seed-demo-visitor` in
-the browser to browse as that visitor. Idempotent. Refuses to run when
-`NODE_ENV=production` or when the connection string looks like production.
+the browser to browse as that visitor. Phase 6 seeds the four `plans`, puts the
+demo tenant on **Growth** with one paid `invoice`, and features the seeded
+merchant (a `featured_placements` row + `featured_rank`). Idempotent. Refuses to
+run when `NODE_ENV=production` or when the connection string looks like
+production.
 
 Analytics rows in spec §38 are added as their phases land.
 
@@ -276,7 +308,7 @@ Analytics rows in spec §38 are added as their phases land.
 | 3 ✅  | `merchants`, `merchant_members`, `merchant_invitations`, `merchant_categories`, `merchant_event_participations`, `listing_items` (`imports`/`import_rows` deferred) |
 | 4 ✅  | `files`, `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                               |
 | 5 ✅  | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
-| 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                                        |
+| 6 ✅  | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements` (`subscription_items`/`payments` deferred)                                              |
 | 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
 | 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                                                   |
 
