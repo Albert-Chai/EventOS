@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 2. Update this file whenever the shape changes
+Current as of Phase 3. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -222,9 +222,41 @@ are now enforced.
   member of one tenant cannot read or update another's event, slugs are
   per-tenant, and drafts stay private.
 
-### What Phase 3 changes
+## 10. Phase 3 — merchant onboarding (shipped)
 
-- `merchants` and participations arrive; the `merchant_onboarding` /
-  `ready_for_review` event statuses (reachable now) gain their merchant-side
-  workflow, and Storage-backed logo/cover uploads fill the reserved `*_file_id`
-  columns on events and merchants.
+Merchants add a **third authority axis** alongside tenant membership and platform
+admin. A `merchant_members` row links a user to a merchant; `requireMerchantMember`
+(`policies/require-merchant.ts`) resolves it and returns a `MerchantScopedContext`
+whose `merchant.id` is derived from membership — never from the request. Merchant
+data is therefore reachable two ways, each scoped in the repository layer:
+
+```
+organizer  → requirePermission("merchant.*")  → scoped by ctx.tenant.id
+merchant   → requireMerchantMember(merchantId) → scoped by ctx.merchant.id
+```
+
+- **Approval workflow** — a pure module (`server/merchants/status.ts`) owns the
+  participation lifecycle (draft → submitted → approved / changes-requested /
+  rejected / withdrawn), which transitions are legal, and _who_ may make each
+  (merchant vs organizer). The organizer's verdicts gate on
+  `merchant.approve`/`merchant.reject`; the merchant submits and withdraws.
+- **The merchant portal** lives at `/merchant` — authenticated but not
+  tenant-scoped, so a merchant member who is not an organizer has a home. The
+  earlier no-workspace dead-end is gone: `/dashboard` now routes a user to
+  wherever they actually belong (platform console, merchant portal, or the
+  no-workspace screen only if genuinely unaffiliated).
+- **Public** — the event page lists approved merchants and links to a public
+  merchant detail page (`/[tenantSlug]/[eventSlug]/[merchantSlug]`) with the menu.
+  The same "filter by public status, never a membership check" seam from Phase 2
+  applies: a listing is public only when `approved` under a public event with an
+  active merchant.
+- **Isolation proven again** — `tests/integration/merchant-isolation.test.ts`
+  covers both axes: cross-tenant invisibility, membership-scoped access, item
+  scoping by participation, and public-shows-approved-only.
+
+### What Phase 4 changes
+
+- Zones, maps, and booths arrive as event-scoped tables; booth assignment links a
+  `merchant_event_participation` to a booth. Storage-backed image uploads (the
+  reserved `*_file_id` columns on events, merchants, and items) are the natural
+  companion media pass.

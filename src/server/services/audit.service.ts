@@ -28,6 +28,18 @@ export const AUDIT_ACTIONS = {
   EVENT_SETTINGS_UPDATED: "event.settings_updated",
   EVENT_BRANDING_UPDATED: "event.branding_updated",
   EVENT_HOURS_UPDATED: "event.hours_updated",
+  MERCHANT_CREATED: "merchant.created",
+  MERCHANT_UPDATED: "merchant.updated",
+  MERCHANT_SUSPENDED: "merchant.suspended",
+  MERCHANT_INVITED: "merchant.invited",
+  MERCHANT_INVITATION_REVOKED: "merchant.invitation_revoked",
+  MERCHANT_MEMBER_JOINED: "merchant.member_joined",
+  MERCHANT_CATEGORY_CREATED: "merchant.category_created",
+  PARTICIPATION_ADDED: "participation.added",
+  PARTICIPATION_STATUS_CHANGED: "participation.status_changed",
+  LISTING_ITEM_CREATED: "listing_item.created",
+  LISTING_ITEM_UPDATED: "listing_item.updated",
+  LISTING_ITEM_DELETED: "listing_item.deleted",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

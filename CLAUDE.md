@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 2 complete** (event management). Next: Phase 3 (merchant onboarding).
+Current state: **Phase 3 complete** (merchant onboarding). Next: Phase 4 (booths & maps).
 
 ---
 
@@ -78,15 +78,22 @@ app/ · features/          UI and route entry points
 
 ## 3. Authorization
 
-Two independent axes (`src/server/policies/require-user.ts`):
+Three independent axes:
 
 1. **Tenant authority** — `ctx.permissions` (a `Set<Permission>`) within the
    active tenant. Gate with `requirePermission("tenant.manage_members")` in
    actions/routes, `requirePermissionOrRedirect(...)` in pages.
+   (`src/server/policies/require-user.ts`)
 2. **Platform authority** — `ctx.isPlatformAdmin` (boolean, from the
    `platform_admins` table). Gate with `requirePlatformAdmin()` /
    `requirePlatformAdminOrRedirect(...)`. It is NOT a permission and NOT a tenant
    role.
+3. **Merchant authority** (Phase 3) — `merchant_members` links a user to a
+   merchant. Gate with `requireMerchantMember(merchantId)` /
+   `...OrRedirect(...)` (`src/server/policies/require-merchant.ts`), which derives
+   `ctx.merchant.id` from membership. Merchants have no sub-roles: managing the
+   merchant is the whole grant. Approving a merchant's listing is the organizer's
+   authority (`merchant.approve`/`merchant.reject`), never the merchant's.
 
 Rules:
 

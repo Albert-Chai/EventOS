@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 2 complete (event management) — see [docs/phase-2-plan.md](docs/phase-2-plan.md); next is Phase 3 (merchants)
+- **Current phase:** Phase 3 complete (merchant onboarding) — see [docs/phase-3-plan.md](docs/phase-3-plan.md); next is Phase 4 (booths & maps)
 
 ---
 
@@ -72,8 +72,8 @@ build rather than the first request.
 
 ```bash
 pnpm install
-pnpm db:migrate    # profiles, tenants, roles, audit, events — all migrations
-pnpm db:seed       # 5 accounts, a platform admin, a demo workspace, 2 events
+pnpm db:migrate    # profiles, tenants, roles, audit, events, merchants — all migrations
+pnpm db:seed       # accounts, a platform admin, a workspace, 2 events, a merchant
 pnpm dev
 ```
 
@@ -82,11 +82,13 @@ Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
 - `organizer.owner@eventos.test` — owner of the demo workspace
 - `organizer.staff@eventos.test` — event manager in it (fewer permissions)
 - `platform.admin@eventos.test` — platform admin → `/platform`
+- `merchant.owner@eventos.test` — merchant → `/merchant` (manages Nasi Lemak Bangsar)
 
-The seeded workspace has a published event and a draft. Their public pages:
+The seeded workspace ships a published event with an approved merchant. Public pages:
 
 - `/kl-food-weekend` — the workspace's public event index
 - `/kl-food-weekend/street-eats` — a published event (the draft `404`s)
+- `/kl-food-weekend/street-eats/nasi-lemak-bangsar` — an approved merchant listing
 
 ### 4. Optional — Google sign-in
 
@@ -118,9 +120,10 @@ broken flow in the meantime.
 src/
 ├── app/                    routes
 │   ├── (auth)/             sign-in, sign-up, password reset
-│   ├── (dashboard)/        authenticated organizer area (events, team, …)
+│   ├── (dashboard)/        authenticated organizer area (events, merchants, team, …)
 │   ├── (platform)/         platform-admin console
-│   ├── (public)/           visitor event pages — /{tenant}/{event}
+│   ├── (public)/           visitor pages — /{tenant}/{event}[/{merchant}]
+│   ├── merchant/           merchant portal — /merchant/{merchantId}/…
 │   ├── auth/callback/      OAuth + email link exchange
 │   └── api/health/         liveness and readiness probes
 ├── components/
@@ -184,8 +187,8 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | 0     | Foundation — auth, database, CI, API contract                    | ✅ Complete |
 | 1     | Multi-tenant platform — tenants, RBAC, audit logs, impersonation | ✅ Complete |
 | 2     | Event management — lifecycle, branding, settings, public pages   | ✅ Complete |
-| 3     | Merchant onboarding                                              | Next        |
-| 4     | Booths and maps                                                  |             |
+| 3     | Merchant onboarding — portal, listings, products, approval       | ✅ Complete |
+| 4     | Booths and maps                                                  | Next        |
 | 5     | Visitor experience                                               |             |
 | 6     | Monetization                                                     |             |
 | 7     | Analytics                                                        |             |

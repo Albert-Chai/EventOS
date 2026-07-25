@@ -20,6 +20,11 @@ import {
   eventOperatingHours,
   eventSettings,
   events,
+  listingItems,
+  merchantCategories,
+  merchantEventParticipations,
+  merchantMembers,
+  merchants,
   platformAdmins,
   profiles,
   tenantMemberRoles,
@@ -118,6 +123,11 @@ async function main() {
       eventSettings,
       eventBranding,
       eventOperatingHours,
+      merchantCategories,
+      merchants,
+      merchantMembers,
+      merchantEventParticipations,
+      listingItems,
     },
   });
   const userIds = new Map<string, string>();
@@ -262,7 +272,7 @@ async function main() {
         .limit(1);
       if (existing) {
         console.log(`  = ${input.name.padEnd(30)} (exists)`);
-        return;
+        return existing;
       }
 
       const [event] = await db
@@ -306,9 +316,10 @@ async function main() {
         );
       }
       console.log(`  + ${input.name.padEnd(30)} (${input.status})`);
+      return event;
     }
 
-    await ensureEvent({
+    const streetEats = await ensureEvent({
       slug: "street-eats",
       name: "KL Street Eats Weekend",
       eventType: "food_festival",
@@ -352,19 +363,162 @@ async function main() {
       hours: [],
     });
 
+    // --- Phase 3: a merchant, its claim membership, an approved listing ------
+    console.log("\nSeeding merchant...\n");
+    const merchantUserId = userIds.get("merchant.owner@eventos.test")!;
+
+    const [existingCategory] = await db
+      .select()
+      .from(merchantCategories)
+      .where(
+        and(eq(merchantCategories.tenantId, tenant.id), eq(merchantCategories.slug, "street-food")),
+      )
+      .limit(1);
+    const category =
+      existingCategory ??
+      (
+        await db
+          .insert(merchantCategories)
+          .values({ tenantId: tenant.id, name: "Street Food", slug: "street-food" })
+          .returning()
+      )[0];
+
+    const [existingMerchant] = await db
+      .select()
+      .from(merchants)
+      .where(and(eq(merchants.tenantId, tenant.id), eq(merchants.slug, "nasi-lemak-bangsar")))
+      .limit(1);
+    const merchant =
+      existingMerchant ??
+      (
+        await db
+          .insert(merchants)
+          .values({
+            tenantId: tenant.id,
+            name: "Nasi Lemak Bangsar",
+            slug: "nasi-lemak-bangsar",
+            categoryId: category.id,
+            description: "Family-run nasi lemak, a Bangsar morning-market favourite since 1998.",
+            contactEmail: "merchant.owner@eventos.test",
+            status: "active",
+            createdBy: ownerId,
+          })
+          .returning()
+      )[0];
+    console.log(
+      `  ${existingMerchant ? "=" : "+"} ${merchant.name} (${existingMerchant ? "exists" : "created"})`,
+    );
+
+    // The merchant.owner account manages this merchant (skips the invite flow).
+    await db
+      .insert(merchantMembers)
+      .values({
+        merchantId: merchant.id,
+        tenantId: tenant.id,
+        userId: merchantUserId,
+        status: "active",
+        joinedAt: new Date(),
+      })
+      .onConflictDoNothing({ target: [merchantMembers.merchantId, merchantMembers.userId] });
+    console.log("  + merchant.owner@eventos.test        (merchant member)");
+
+    // An approved participation + items in the published event, so the public
+    // page shows a real merchant listing out of the box.
+    if (streetEats) {
+      const [existingParticipation] = await db
+        .select()
+        .from(merchantEventParticipations)
+        .where(
+          and(
+            eq(merchantEventParticipations.eventId, streetEats.id),
+            eq(merchantEventParticipations.merchantId, merchant.id),
+          ),
+        )
+        .limit(1);
+
+      if (!existingParticipation) {
+        const [participation] = await db
+          .insert(merchantEventParticipations)
+          .values({
+            tenantId: tenant.id,
+            eventId: streetEats.id,
+            merchantId: merchant.id,
+            listingTitle: "Nasi Lemak Bangsar",
+            listingDescription:
+              "Coconut rice, sambal, and all the trimmings — plus rendang and teh tarik.",
+            approvalStatus: "approved",
+            submittedAt: now,
+            approvedAt: now,
+            reviewedBy: ownerId,
+          })
+          .returning();
+
+        await db.insert(listingItems).values([
+          {
+            tenantId: tenant.id,
+            participationId: participation.id,
+            merchantId: merchant.id,
+            eventId: streetEats.id,
+            name: "Nasi Lemak Ayam",
+            description: "With fried chicken, sambal, egg, and peanuts.",
+            price: "12.00",
+            currency: "MYR",
+            isHalal: true,
+            dietaryTags: ["halal"],
+            displayOrder: 0,
+          },
+          {
+            tenantId: tenant.id,
+            participationId: participation.id,
+            merchantId: merchant.id,
+            eventId: streetEats.id,
+            name: "Nasi Lemak Rendang",
+            description: "Slow-cooked beef rendang.",
+            price: "15.00",
+            promoPrice: "12.90",
+            currency: "MYR",
+            isHalal: true,
+            dietaryTags: ["halal", "spicy"],
+            displayOrder: 1,
+          },
+          {
+            tenantId: tenant.id,
+            participationId: participation.id,
+            merchantId: merchant.id,
+            eventId: streetEats.id,
+            name: "Teh Tarik",
+            price: "4.00",
+            currency: "MYR",
+            isHalal: true,
+            dietaryTags: [],
+            displayOrder: 2,
+          },
+        ]);
+        console.log("  + approved listing with 3 items");
+      } else {
+        console.log("  = approved listing (exists)");
+      }
+    }
+
     const [{ count }] = await db.execute<{ count: string }>(
       raw`select count(*)::text as count from profiles`,
     );
 
-    console.log(`\nDone. ${count} profile(s), 1 tenant, 1 platform admin, 2 events.`);
+    console.log(`\nDone. ${count} profile(s), 1 tenant, 1 platform admin, 2 events, 1 merchant.`);
     console.log(`Password for every seeded account: ${SEED_PASSWORD}`);
     console.log("\nSign in as:");
     console.log("  platform.admin@eventos.test   → /platform (platform admin)");
     console.log("  organizer.owner@eventos.test  → owner of Kuala Lumpur Food Discovery Weekend");
     console.log("  organizer.staff@eventos.test  → event manager in that workspace");
+    console.log("  merchant.owner@eventos.test   → /merchant (manages Nasi Lemak Bangsar)");
     console.log("\nPublic pages:");
-    console.log("  /kl-food-weekend               → the workspace's public event index");
-    console.log("  /kl-food-weekend/street-eats   → a published event (draft trial 404s)");
+    console.log(
+      "  /kl-food-weekend                            → the workspace's public event index",
+    );
+    console.log(
+      "  /kl-food-weekend/street-eats                → a published event (draft trial 404s)",
+    );
+    console.log("  /kl-food-weekend/street-eats/nasi-lemak-bangsar → an approved merchant listing");
   } finally {
     await sql.end();
   }

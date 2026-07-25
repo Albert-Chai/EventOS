@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 2.
+Current as of Phase 3.
 
 ---
 
@@ -82,16 +82,18 @@ pnpm db:generate     # writes drizzle/NNNN_*.sql
 pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 ```
 
-| File                                       | Kind                                                                                                   |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `drizzle/0000_init.sql`                    | Generated — `profiles`                                                                                 |
-| `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                              |
-| `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                |
-| `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed |
-| `drizzle/0004_tense_virginia_dare.sql`     | Generated — events, event_settings, event_branding, event_operating_hours                              |
-| `drizzle/0005_events_constraints.sql`      | **Hand-written** — events→auth.users FK, per-tenant `lower(slug)` index, triggers, grants              |
+| File                                       | Kind                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `drizzle/0000_init.sql`                    | Generated — `profiles`                                                                                            |
+| `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                                         |
+| `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                           |
+| `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed            |
+| `drizzle/0004_tense_virginia_dare.sql`     | Generated — events, event_settings, event_branding, event_operating_hours                                         |
+| `drizzle/0005_events_constraints.sql`      | **Hand-written** — events→auth.users FK, per-tenant `lower(slug)` index, triggers, grants                         |
+| `drizzle/0006_massive_madame_masque.sql`   | Generated — merchants, merchant_members, merchant_invitations, merchant_categories, participations, listing_items |
+| `drizzle/0007_merchants_constraints.sql`   | **Hand-written** — merchant→auth.users FKs, per-tenant `lower(slug)` indexes, triggers, grants                    |
 
-`_journal.json` lists all six; hand-written files must be added to it manually.
+`_journal.json` lists all eight; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -151,6 +153,27 @@ Phase 3), and `event_operating_hours` (1:many per-date). Notes:
   (`tenant_id → tenants`, `event_id → events`) are in the generated migration;
   the cross-schema `events.created_by → auth.users` FK is hand-written in 0005.
 
+### Phase 3 additions
+
+`merchants` + the merchant authority axis (`merchant_members`,
+`merchant_invitations`), `merchant_categories`, `merchant_event_participations`,
+and `listing_items`. Notes:
+
+- **A second authority axis.** `merchant_members` links `auth.users` to a
+  merchant, the way `tenant_members` links to a tenant. A merchant is reachable
+  two ways — by an organizer (scoped by `tenant_id`) or by a merchant member
+  (scoped by `merchant_id` derived from membership) — and both are enforced in
+  the repository layer, never from a client value.
+- **Merchant/category slugs are unique per tenant** (partial `lower(slug)`
+  expression indexes; merchants' also excludes soft-deleted rows).
+- **The approval workflow** lives on `merchant_event_participations.approval_status`
+  (`src/server/merchants/status.ts`) — the spec's separate `participation_status`
+  is folded in. `listing_items` are event-scoped (per participation) and carry
+  `tenant_id`, `merchant_id`, and `event_id` so any read scopes on whichever axis
+  is asking. `price`/`promo_price` are `numeric`; `dietary_tags` is `text[]`.
+- Cross-schema `auth.users` FKs (`merchant_members.user_id` etc.) and the
+  expression indexes are hand-written in 0007.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -171,24 +194,27 @@ Discovery Weekend) owned by `organizer.owner@eventos.test` with
 `organizer.staff@eventos.test` as an event manager. Phase 2 adds two events under
 that tenant: a **published** one (`street-eats`, public at
 `/kl-food-weekend/street-eats`) and a **draft** (`ramadan-bazaar-trial`, which
-`404`s publicly). Idempotent. Refuses to run when `NODE_ENV=production` or when
-the connection string looks like production.
+`404`s publicly). Phase 3 adds a merchant (`nasi-lemak-bangsar`, managed by
+`merchant.owner@eventos.test`) with an **approved** listing and three items in the
+published event, so the public merchant page works out of the box. Idempotent.
+Refuses to run when `NODE_ENV=production` or when the connection string looks like
+production.
 
-Merchants, booths, and analytics rows in spec §38 are added as their phases land.
+Booths and analytics rows in spec §38 are added as their phases land.
 
 ---
 
 ## 7. Roadmap
 
-| Phase | Tables                                                                                                                                       |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 ✅  | `tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`, `roles`, `platform_admins`, `audit_logs`, `impersonation_sessions` |
-| 2 ✅  | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                        |
-| 3     | `merchants`, `merchant_event_participations`, `listing_items`, `merchant_categories`, `imports`, `import_rows`                               |
-| 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                 |
-| 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                     |
-| 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                 |
-| 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                            |
-| 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                            |
+| Phase | Tables                                                                                                                                                              |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 ✅  | `tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`, `roles`, `platform_admins`, `audit_logs`, `impersonation_sessions`                        |
+| 2 ✅  | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                                               |
+| 3 ✅  | `merchants`, `merchant_members`, `merchant_invitations`, `merchant_categories`, `merchant_event_participations`, `listing_items` (`imports`/`import_rows` deferred) |
+| 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                                        |
+| 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
+| 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                                        |
+| 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
+| 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                                                   |
 
 Full target list: spec §12.

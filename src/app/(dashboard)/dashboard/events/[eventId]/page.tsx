@@ -42,6 +42,7 @@ export default async function EventOverviewPage({
   const canEdit = ctx.permissions.has("event.update");
   const canCreate = ctx.permissions.has("event.create");
   const canDelete = ctx.permissions.has("event.delete");
+  const canViewMerchants = ctx.permissions.has("merchant.view");
 
   const publicUrl =
     isPublicStatus(event.status) && isPubliclyReachable(event.visibility as EventVisibility)
@@ -97,6 +98,18 @@ export default async function EventOverviewPage({
           >
             View public page ↗
           </a>
+        ) : null}
+        {canViewMerchants ? (
+          <Link
+            href={`/dashboard/events/${event.id}/merchants`}
+            className={buttonVariants({
+              variant: "outline",
+              size: "sm",
+              className: "justify-self-start",
+            })}
+          >
+            Manage merchants
+          </Link>
         ) : null}
       </div>
 

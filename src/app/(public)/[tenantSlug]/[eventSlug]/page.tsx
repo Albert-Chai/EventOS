@@ -15,6 +15,7 @@ import {
   listEventOperatingHours,
 } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
+import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
 
 type Params = { params: Promise<{ tenantSlug: string; eventSlug: string }> };
 
@@ -44,10 +45,11 @@ export default async function PublicEventPage({ params }: Params) {
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [branding, settings, hours] = await Promise.all([
+  const [branding, settings, hours, merchants] = await Promise.all([
     getEventBranding(event.tenantId, event.id),
     getEventSettings(event.tenantId, event.id),
     listEventOperatingHours(event.tenantId, event.id),
+    listPublicParticipations(event.id),
   ]);
 
   const primary = branding?.primaryColor ?? "#0f172a";
@@ -130,8 +132,34 @@ export default async function PublicEventPage({ params }: Params) {
           </section>
         ) : null}
 
-        <section className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
-          Merchant listings and the interactive map arrive soon.
+        <section className="grid gap-3">
+          <h2 className="text-lg font-semibold">Merchants</h2>
+          {merchants.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Merchant listings will appear here as they&apos;re approved.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {merchants.map((m) => (
+                <li key={m.participationId}>
+                  <a
+                    href={`/${event.tenantSlug}/${event.slug}/${m.merchantSlug}`}
+                    className="hover:bg-muted/50 flex flex-col gap-0.5 rounded-lg border p-3 transition-colors"
+                  >
+                    <span className="font-medium">{m.listingTitle || m.merchantName}</span>
+                    {m.categoryName ? (
+                      <span className="text-muted-foreground text-xs">{m.categoryName}</span>
+                    ) : null}
+                    {m.listingDescription ? (
+                      <span className="text-muted-foreground line-clamp-2 text-sm">
+                        {m.listingDescription}
+                      </span>
+                    ) : null}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </article>

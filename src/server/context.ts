@@ -69,6 +69,21 @@ export type AuthenticatedContext = RequestContext & { user: AuthenticatedUser };
 /** An authenticated context with a resolved active tenant. From `requireTenant`. */
 export type TenantScopedContext = AuthenticatedContext & { tenant: TenantContext };
 
+/**
+ * A merchant the authenticated user manages (the third authority axis, spec §8.4).
+ * Resolved from `merchant_members`, never from a client value — the `merchant_id`
+ * seam that mirrors tenant scoping.
+ */
+export type MerchantContext = {
+  id: string;
+  tenantId: string;
+  name: string;
+  slug: string;
+};
+
+/** An authenticated context acting as a specific merchant. From `requireMerchantMember`. */
+export type MerchantScopedContext = AuthenticatedContext & { merchant: MerchantContext };
+
 export function createRequestId(): string {
   return `req_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
 }

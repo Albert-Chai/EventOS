@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { listMerchantsForUser } from "@/server/db/repositories/merchants.repository";
 import { requireUserOrRedirect } from "@/server/policies/require-user";
 
 export const metadata: Metadata = {
@@ -23,6 +24,9 @@ export default async function NoWorkspacePage() {
   // A platform admin who reaches here directly runs the platform — this "await
   // your invitation" copy is for organizers, not them. Send them to the console.
   if (ctx.isPlatformAdmin) redirect("/platform");
+
+  // A merchant member's home is the merchant portal, not this organizer screen.
+  if ((await listMerchantsForUser(ctx.user.id)).length > 0) redirect("/merchant");
 
   return (
     <div className="mx-auto max-w-lg py-12">

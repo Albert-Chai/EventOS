@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROLES } from "@/server/authz/roles";
+import { listMerchantsForUser } from "@/server/db/repositories/merchants.repository";
 import { requireUserOrRedirect } from "@/server/policies/require-user";
 
 export const metadata: Metadata = {
@@ -16,10 +17,14 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const ctx = await requireUserOrRedirect("/dashboard");
 
-  // No membership yet. A platform admin belongs in the console they run — not an
-  // organizer empty state telling them to await an invitation. Everyone else
-  // gets the dedicated "no workspace" screen.
-  if (!ctx.tenant) redirect(ctx.isPlatformAdmin ? "/platform" : "/dashboard/no-workspace");
+  // No organizer membership yet. Route the user to wherever they *do* have a
+  // home: a platform admin to the console, a merchant member to their portal.
+  // Only a genuinely unaffiliated user sees the "no workspace" screen.
+  if (!ctx.tenant) {
+    if (ctx.isPlatformAdmin) redirect("/platform");
+    if ((await listMerchantsForUser(ctx.user.id)).length > 0) redirect("/merchant");
+    redirect("/dashboard/no-workspace");
+  }
 
   const roleNames = ctx.tenant.roleKeys.map((key) => ROLES[key]?.name ?? key);
 
