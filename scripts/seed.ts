@@ -15,12 +15,19 @@ import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, sql as raw } from "drizzle-orm";
 
+import { randomUUID } from "node:crypto";
+
 import {
+  boothAssignments,
+  booths,
   eventBranding,
   eventOperatingHours,
   eventSettings,
   events,
+  files,
   listingItems,
+  mapFloors,
+  maps,
   merchantCategories,
   merchantEventParticipations,
   merchantMembers,
@@ -30,9 +37,11 @@ import {
   tenantMemberRoles,
   tenantMembers,
   tenants,
+  zones,
 } from "../src/server/db/schema";
 import type { EventType } from "../src/server/events/event-types";
 import type { EventStatus } from "../src/server/events/status";
+import { floorPlanPng, solidPng } from "./lib/floorplan-png";
 
 config({ path: ".env.local", quiet: true });
 config({ path: ".env", quiet: true });
@@ -436,8 +445,10 @@ async function main() {
         )
         .limit(1);
 
+      let participation = existingParticipation ?? null;
+
       if (!existingParticipation) {
-        const [participation] = await db
+        const [inserted] = await db
           .insert(merchantEventParticipations)
           .values({
             tenantId: tenant.id,
@@ -452,6 +463,7 @@ async function main() {
             reviewedBy: ownerId,
           })
           .returning();
+        participation = inserted;
 
         await db.insert(listingItems).values([
           {
@@ -498,6 +510,160 @@ async function main() {
       } else {
         console.log("  = approved listing (exists)");
       }
+
+      // --- Phase 4: zones, a floor plan, booths, a confirmed assignment ------
+      if (participation) {
+        const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "eventos-public";
+
+        const [existingFloor] = await db
+          .select()
+          .from(mapFloors)
+          .where(eq(mapFloors.eventId, streetEats.id))
+          .limit(1);
+
+        if (!existingFloor) {
+          const [map] = await db
+            .insert(maps)
+            .values({ tenantId: tenant.id, eventId: streetEats.id, name: "Main Hall" })
+            .returning();
+
+          // Pre-generate the floor id so the Storage path is stable.
+          const floorId = randomUUID();
+          const floorPng = floorPlanPng(1000, 700);
+          const floorPath = `${tenant.id}/events/${streetEats.id}/maps/${floorId}/seed.png`;
+          const upload = await supabase.storage
+            .from(bucket)
+            .upload(floorPath, floorPng, { contentType: "image/png", upsert: true });
+          if (upload.error) throw upload.error;
+
+          const [floorFile] = await db
+            .insert(files)
+            .values({
+              tenantId: tenant.id,
+              bucket,
+              path: floorPath,
+              kind: "map_floor",
+              mimeType: "image/png",
+              sizeBytes: floorPng.length,
+              width: 1000,
+              height: 700,
+              originalName: "floor-plan.png",
+              createdBy: ownerId,
+            })
+            .returning();
+
+          const [floor] = await db
+            .insert(mapFloors)
+            .values({
+              id: floorId,
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              mapId: map.id,
+              name: "Ground floor",
+              imageFileId: floorFile.id,
+              imageWidth: 1000,
+              imageHeight: 700,
+            })
+            .returning();
+
+          const [foodZone] = await db
+            .insert(zones)
+            .values({
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              name: "Food Court",
+              color: "#16a34a",
+              displayOrder: 0,
+            })
+            .returning();
+          const [drinksZone] = await db
+            .insert(zones)
+            .values({
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              name: "Drinks & Desserts",
+              color: "#ca8a04",
+              displayOrder: 1,
+            })
+            .returning();
+
+          const boothDefs = [
+            { number: "A-1", zone: foodZone.id, x: 0.22, y: 0.28 },
+            { number: "A-2", zone: foodZone.id, x: 0.4, y: 0.28 },
+            { number: "A-3", zone: foodZone.id, x: 0.58, y: 0.28 },
+            { number: "B-1", zone: drinksZone.id, x: 0.22, y: 0.66 },
+            { number: "B-2", zone: drinksZone.id, x: 0.4, y: 0.66 },
+          ];
+          const insertedBooths = [];
+          for (const bd of boothDefs) {
+            const [b] = await db
+              .insert(booths)
+              .values({
+                tenantId: tenant.id,
+                eventId: streetEats.id,
+                zoneId: bd.zone,
+                mapFloorId: floor.id,
+                boothNumber: bd.number,
+                x: bd.x,
+                y: bd.y,
+                width: 0.1,
+                height: 0.08,
+                status: "available",
+              })
+              .returning();
+            insertedBooths.push(b);
+          }
+
+          // Assign the seeded merchant to A-1, confirmed.
+          const boothA1 = insertedBooths[0];
+          await db.insert(boothAssignments).values({
+            tenantId: tenant.id,
+            eventId: streetEats.id,
+            boothId: boothA1.id,
+            participationId: participation.id,
+            merchantId: merchant.id,
+            status: "confirmed",
+            assignedBy: ownerId,
+            assignedAt: now,
+            confirmedAt: now,
+          });
+          await db.update(booths).set({ status: "confirmed" }).where(eq(booths.id, boothA1.id));
+          console.log("  + floor plan, 2 zones, 5 booths, 1 confirmed assignment");
+        } else {
+          console.log("  = floor plan / booths (exist)");
+        }
+
+        // Merchant logo (media pass), idempotent by the column.
+        if (!merchant.logoFileId) {
+          const bucket2 = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "eventos-public";
+          const logoPng = solidPng(256, [15, 23, 42]);
+          const logoPath = `${tenant.id}/merchants/${merchant.id}/seed-logo.png`;
+          const upload = await supabase.storage
+            .from(bucket2)
+            .upload(logoPath, logoPng, { contentType: "image/png", upsert: true });
+          if (upload.error) throw upload.error;
+          const [logoFile] = await db
+            .insert(files)
+            .values({
+              tenantId: tenant.id,
+              bucket: bucket2,
+              path: logoPath,
+              kind: "merchant_logo",
+              mimeType: "image/png",
+              sizeBytes: logoPng.length,
+              width: 256,
+              height: 256,
+              originalName: "logo.png",
+              createdBy: ownerId,
+            })
+            .returning();
+          await db
+            .update(merchants)
+            .set({ logoFileId: logoFile.id })
+            .where(eq(merchants.id, merchant.id));
+          console.log("  + merchant logo");
+        }
+      }
     }
 
     const [{ count }] = await db.execute<{ count: string }>(
@@ -519,6 +685,7 @@ async function main() {
       "  /kl-food-weekend/street-eats                → a published event (draft trial 404s)",
     );
     console.log("  /kl-food-weekend/street-eats/nasi-lemak-bangsar → an approved merchant listing");
+    console.log("  /kl-food-weekend/street-eats/map            → the interactive booth map");
   } finally {
     await sql.end();
   }

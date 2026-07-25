@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 3. Update this file whenever the shape changes
+Current as of Phase 4. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -149,22 +149,23 @@ form-driven, and they work before JavaScript hydrates.
 
 ## 7. Security posture (spec §20)
 
-| Control                           | State                                                              |
-| --------------------------------- | ------------------------------------------------------------------ |
-| HTTP-only cookie sessions         | ✅                                                                 |
-| Password hashing                  | ✅ Supabase                                                        |
-| CSRF                              | ✅ Server Action origin check                                      |
-| Input validation                  | ✅ Zod, server-side                                                |
-| Open-redirect guard               | ✅ `safeRedirectPath`, unit-tested against the standard bypass set |
-| User-enumeration resistance       | ✅ generic sign-in and reset responses                             |
-| Security headers                  | ✅ HSTS, nosniff, DENY, Referrer-Policy, Permissions-Policy        |
-| CSP                               | ⚠️ report-only; enforce once the report log is clean               |
-| Secret/client boundary            | ✅ enforced at build time by `@t3-oss/env-nextjs`                  |
-| SQL injection                     | ✅ Drizzle parameterised queries only                              |
-| PostgREST exposure                | ✅ revoked on `public.profiles`; repeat for every new table        |
-| Audit logging                     | ✅ append-only `audit_logs`, written by the service layer          |
-| Rate limiting                     | ❌ needs Redis. Supabase auth limits apply meanwhile               |
-| Recent-auth for sensitive actions | ❌ deferred                                                        |
+| Control                           | State                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| HTTP-only cookie sessions         | ✅                                                                      |
+| Password hashing                  | ✅ Supabase                                                             |
+| CSRF                              | ✅ Server Action origin check                                           |
+| Input validation                  | ✅ Zod, server-side                                                     |
+| Open-redirect guard               | ✅ `safeRedirectPath`, unit-tested against the standard bypass set      |
+| User-enumeration resistance       | ✅ generic sign-in and reset responses                                  |
+| Security headers                  | ✅ HSTS, nosniff, DENY, Referrer-Policy, Permissions-Policy             |
+| CSP                               | ⚠️ report-only; enforce once the report log is clean                    |
+| Secret/client boundary            | ✅ enforced at build time by `@t3-oss/env-nextjs`                       |
+| SQL injection                     | ✅ Drizzle parameterised queries only                                   |
+| PostgREST exposure                | ✅ revoked on every table; Storage is public-read, server-write only    |
+| Upload validation                 | ✅ server-side mime + 6 MB limit; server-constructed tenant-scoped keys |
+| Audit logging                     | ✅ append-only `audit_logs`, written by the service layer               |
+| Rate limiting                     | ❌ needs Redis. Supabase auth limits apply meanwhile                    |
+| Recent-auth for sensitive actions | ❌ deferred                                                             |
 
 ---
 
@@ -254,9 +255,38 @@ merchant   → requireMerchantMember(merchantId) → scoped by ctx.merchant.id
   covers both axes: cross-tenant invisibility, membership-scoped access, item
   scoping by participation, and public-shows-approved-only.
 
-### What Phase 4 changes
+## 11. Phase 4 — booths, maps & the media pass (shipped)
 
-- Zones, maps, and booths arrive as event-scoped tables; booth assignment links a
-  `merchant_event_participation` to a booth. Storage-backed image uploads (the
-  reserved `*_file_id` columns on events, merchants, and items) are the natural
-  companion media pass.
+The floor plan arrives as event-scoped tables — `zones`, `maps`, `map_floors`,
+`booths` — and `booth_assignments` links a `merchant_event_participation` to a
+booth. Two pure modules pin the rules: `server/booths/status.ts` owns the booth
+lifecycle (`available → reserved → assigned → confirmed`, plus manual
+`blocked`/`cancelled`) and the assignment lifecycle (`assigned → confirmed`, or
+→ `cancelled`), keeping the booth's status in step. The organizer assigns and
+cancels (`booth.manage`, tenant-scoped); the merchant confirms their own booth
+(membership-scoped) — the §7 loop.
+
+- **The media pass.** The long-reserved `*_file_id` columns finally light up on a
+  real Supabase Storage flow. `files` is a normal tenant-scoped table written only
+  through the repository layer; objects are written by `server/media/storage.ts`
+  — the _one_ sanctioned service-role use in a request path, justified because
+  Storage isn't our `public.*` schema and the object key is server-constructed
+  from `ctx.tenant.id` + entity ids (see §7 and CLAUDE.md §6). `media.service` +
+  `entity-media.service` are the seam; a reusable `<ImageUploadField>` +
+  `<MediaImage>` render everywhere (map floors, merchant logo/cover, item photos,
+  event branding).
+- **The public interactive map** (`/[tenantSlug]/[eventSlug]/map`) is a client
+  component: an image-based floor plan with normalized booth coordinates, pan +
+  wheel/pinch zoom, search, zone legend, and deep-linking (`?booth=`). It reuses
+  the Phase 2/3 seam — `listBoothsForEventPublic` links a booth to a merchant only
+  when the assignment is active, the listing is `approved`, and the merchant is
+  active; every other booth renders as an unlinked shape.
+- **Isolation proven again** — `tests/integration/booth-isolation.test.ts` covers
+  cross-tenant invisibility of booths/zones, tenant-scoped assignment lookups, and
+  public-shows-approved-only.
+
+### What Phase 5 changes
+
+- The visitor experience — public directory, search, filters, favourites, recently
+  viewed, PWA — builds on the public event/merchant/map surfaces. The map's search
+  and (deferred) category filter graduate into the shared visitor search.

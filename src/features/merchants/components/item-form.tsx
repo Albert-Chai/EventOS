@@ -22,6 +22,7 @@ export type ItemView = {
   dietaryTags: string;
   isHalal: boolean;
   availability: string;
+  imageUrl: string | null;
 };
 
 const SELECT_CLASS =

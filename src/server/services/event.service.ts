@@ -10,6 +10,7 @@ import {
   updateEvent as updateEventRow,
 } from "@/server/db/repositories/events.repository";
 import {
+  getEventBranding,
   replaceEventOperatingHours,
   updateEventBranding,
   updateEventSettings,
@@ -19,6 +20,7 @@ import type { Event, EventBranding, EventSettings } from "@/server/db/schema";
 import type { EventType, EventVisibility } from "@/server/events/event-types";
 import { canTransition, type EventStatus } from "@/server/events/status";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { swapImage, type ImageChange } from "./entity-media.service";
 
 /**
  * Event lifecycle (spec §8.3). Every function is tenant-scoped: the `tenantId`
@@ -314,6 +316,38 @@ export async function updateBranding(
     after: patch,
   });
   return branding;
+}
+
+/** Sets or clears the event's branding logo/cover (the media pass). */
+export async function setEventBrandingImage(
+  ctx: TenantScopedContext,
+  eventId: string,
+  kind: "logo" | "cover",
+  change: ImageChange,
+): Promise<void> {
+  await requireEvent(ctx, eventId);
+  const branding = await getEventBranding(ctx.tenant.id, eventId);
+  const currentFileId = (kind === "logo" ? branding?.logoFileId : branding?.coverFileId) ?? null;
+
+  await swapImage(ctx, {
+    tenantId: ctx.tenant.id,
+    scope: `events/${eventId}/branding`,
+    ownerId: eventId,
+    kind: kind === "logo" ? "event_logo" : "event_cover",
+    currentFileId,
+    change,
+    apply: (fileId) =>
+      updateEventBranding(ctx.tenant.id, eventId, {
+        [kind === "logo" ? "logoFileId" : "coverFileId"]: fileId,
+      }),
+  });
+
+  await recordAudit(ctx, {
+    action: AUDIT_ACTIONS.EVENT_BRANDING_UPDATED,
+    resourceType: "event",
+    resourceId: eventId,
+    after: { [kind]: !("remove" in change) },
+  });
 }
 
 export async function setOperatingHours(

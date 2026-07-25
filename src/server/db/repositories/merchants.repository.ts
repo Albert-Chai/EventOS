@@ -106,6 +106,8 @@ export async function updateMerchant(
       | "contactPhone"
       | "website"
       | "status"
+      | "logoFileId"
+      | "coverFileId"
     >
   >,
 ): Promise<Merchant | null> {

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
+import { ImageUploadField } from "@/components/media/image-upload-field";
 import { FormField } from "@/components/forms/form-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EVENT_THEMES, type EventBranding } from "@/server/db/schema";
@@ -21,7 +22,17 @@ const THEME_LABELS: Record<string, string> = {
 const SELECT_CLASS =
   "border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3";
 
-export function BrandingForm({ eventId, branding }: { eventId: string; branding: EventBranding }) {
+export function BrandingForm({
+  eventId,
+  branding,
+  logoUrl,
+  coverUrl,
+}: {
+  eventId: string;
+  branding: EventBranding;
+  logoUrl: string | null;
+  coverUrl: string | null;
+}) {
   const [state, submit] = useActionState(updateBrandingAction, initialEventFormState);
   const fieldErrors = state.fieldErrors ?? {};
 
@@ -87,9 +98,20 @@ export function BrandingForm({ eventId, branding }: { eventId: string; branding:
         />
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        Logo and cover-image uploads arrive with merchant media in Phase 3.
-      </p>
+      <ImageUploadField
+        name="logo"
+        label="Logo"
+        aspect="square"
+        currentUrl={logoUrl}
+        hint="Shown on the public event header. PNG, JPEG, WebP or AVIF, up to 6 MB."
+      />
+      <ImageUploadField
+        name="cover"
+        label="Cover image"
+        aspect="wide"
+        currentUrl={coverUrl}
+        hint="A wide banner for the top of the public page."
+      />
 
       <SubmitButton className="justify-self-start" pendingText="Saving…">
         Save branding

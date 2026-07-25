@@ -3,6 +3,7 @@ import { boolean, index, integer, numeric, pgTable, text, uuid } from "drizzle-o
 import type { ItemAvailability } from "../../merchants/status";
 import { primaryId, timestamps } from "./_shared";
 import { events } from "./events";
+import { files } from "./files";
 import { merchants } from "./merchants";
 import { merchantEventParticipations } from "./participations";
 import { tenants } from "./tenants";
@@ -37,7 +38,7 @@ export const listingItems = pgTable(
     price: numeric("price", { precision: 10, scale: 2 }),
     promoPrice: numeric("promo_price", { precision: 10, scale: 2 }),
     currency: text("currency").notNull().default("MYR"),
-    imageFileId: uuid("image_file_id"),
+    imageFileId: uuid("image_file_id").references(() => files.id, { onDelete: "set null" }),
     dietaryTags: text("dietary_tags").array().notNull().default([]),
     isHalal: boolean("is_halal").notNull().default(false),
     availability: text("availability").notNull().default("available").$type<ItemAvailability>(),

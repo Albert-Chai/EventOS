@@ -21,9 +21,14 @@ export const ERROR_CODES = {
   NOT_FOUND: { status: 404, message: "The requested resource was not found." },
   EVENT_NOT_FOUND: { status: 404, message: "The requested event was not found." },
   MERCHANT_NOT_FOUND: { status: 404, message: "The requested merchant was not found." },
+  BOOTH_NOT_FOUND: { status: 404, message: "The requested booth was not found." },
   CONFLICT: { status: 409, message: "The resource is in a conflicting state." },
   SLUG_TAKEN: { status: 409, message: "That slug is already in use." },
+  BOOTH_NUMBER_TAKEN: { status: 409, message: "That booth number is already used in this event." },
+  BOOTH_NOT_ASSIGNABLE: { status: 409, message: "That booth is not open for assignment." },
   INVALID_STATE_TRANSITION: { status: 409, message: "That status change is not allowed." },
+  UNSUPPORTED_MEDIA_TYPE: { status: 415, message: "That file type is not supported." },
+  FILE_TOO_LARGE: { status: 413, message: "That file is too large." },
 
   // --- Limits -------------------------------------------------------------
   RATE_LIMITED: { status: 429, message: "Too many requests. Please try again shortly." },

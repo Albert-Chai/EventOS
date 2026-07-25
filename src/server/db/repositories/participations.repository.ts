@@ -240,6 +240,8 @@ export type PublicMerchantListing = {
     slug: string;
     description: string | null;
     website: string | null;
+    logoFileId: string | null;
+    coverFileId: string | null;
   };
   listingTitle: string | null;
   listingDescription: string | null;
@@ -258,6 +260,8 @@ export async function findPublicParticipationByMerchantSlug(
       merchantSlug: merchants.slug,
       merchantDescription: merchants.description,
       merchantWebsite: merchants.website,
+      merchantLogoFileId: merchants.logoFileId,
+      merchantCoverFileId: merchants.coverFileId,
       listingTitle: merchantEventParticipations.listingTitle,
       listingDescription: merchantEventParticipations.listingDescription,
     })
@@ -283,6 +287,8 @@ export async function findPublicParticipationByMerchantSlug(
       slug: row.merchantSlug,
       description: row.merchantDescription,
       website: row.merchantWebsite,
+      logoFileId: row.merchantLogoFileId,
+      coverFileId: row.merchantCoverFileId,
     },
     listingTitle: row.listingTitle,
     listingDescription: row.listingDescription,

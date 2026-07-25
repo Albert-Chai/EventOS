@@ -13,7 +13,10 @@ import {
   getEventBranding,
   listEventOperatingHours,
 } from "@/server/db/repositories/event-config.repository";
+import { countBoothsForEvent } from "@/server/db/repositories/booths.repository";
 import { findEventById } from "@/server/db/repositories/events.repository";
+import { listMapFloorsForEvent } from "@/server/db/repositories/maps.repository";
+import { listZonesForEvent } from "@/server/db/repositories/zones.repository";
 import { requirePermissionOrRedirect } from "@/server/policies/require-user";
 import { isPublicStatus } from "@/server/events/status";
 import { isPubliclyReachable, type EventVisibility } from "@/server/events/event-types";
@@ -34,15 +37,21 @@ export default async function EventOverviewPage({
   const event = await findEventById(ctx.tenant.id, eventId);
   if (!event) notFound();
 
-  const [branding, hours] = await Promise.all([
+  const [branding, hours, zones, boothCount, floors] = await Promise.all([
     getEventBranding(ctx.tenant.id, eventId),
     listEventOperatingHours(ctx.tenant.id, eventId),
+    listZonesForEvent(ctx.tenant.id, eventId),
+    countBoothsForEvent(ctx.tenant.id, eventId),
+    listMapFloorsForEvent(ctx.tenant.id, eventId),
   ]);
 
   const canEdit = ctx.permissions.has("event.update");
   const canCreate = ctx.permissions.has("event.create");
   const canDelete = ctx.permissions.has("event.delete");
   const canViewMerchants = ctx.permissions.has("merchant.view");
+  const canManageBooths = ctx.permissions.has("booth.manage");
+  const canManageMap = ctx.permissions.has("map.manage");
+  const mapUploaded = floors.some((f) => f.imageFileId);
 
   const publicUrl =
     isPublicStatus(event.status) && isPubliclyReachable(event.visibility as EventVisibility)
@@ -66,8 +75,10 @@ export default async function EventOverviewPage({
     { label: "Venue configured", done: Boolean(event.venueName) },
     { label: "Operating hours set", done: hours.length > 0 },
     { label: "Branding customised", done: brandingCustomised },
+    { label: "Zones created", done: zones.length > 0 },
+    { label: "Map uploaded", done: mapUploaded },
+    { label: "Booths added", done: boothCount > 0 },
     { label: "Event published", done: isPublicStatus(event.status) },
-    { label: "Zones and booths created", done: false, upcoming: true },
     { label: "Merchants invited and approved", done: false, upcoming: true },
   ];
 
@@ -169,6 +180,22 @@ export default async function EventOverviewPage({
                 >
                   Operating hours
                 </Link>
+                {canManageBooths ? (
+                  <Link
+                    href={`/dashboard/events/${event.id}/booths`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Booths
+                  </Link>
+                ) : null}
+                {canManageMap ? (
+                  <Link
+                    href={`/dashboard/events/${event.id}/map`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Floor plans
+                  </Link>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

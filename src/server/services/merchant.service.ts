@@ -1,7 +1,11 @@
 import { AppError } from "@/lib/api/errors";
 import { isValidSlug, slugify } from "@/lib/slug";
 import { generateToken, hashToken } from "@/server/authz/tokens";
-import type { AuthenticatedContext, TenantScopedContext } from "@/server/context";
+import type {
+  AuthenticatedContext,
+  MerchantScopedContext,
+  TenantScopedContext,
+} from "@/server/context";
 import {
   categorySlugExists,
   insertCategory,
@@ -21,6 +25,7 @@ import {
 } from "@/server/db/repositories/merchants.repository";
 import type { Merchant, MerchantCategory } from "@/server/db/schema";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { swapImage, type ImageChange } from "./entity-media.service";
 
 /**
  * Merchant lifecycle (spec §8.4). Organizer operations are tenant-scoped (gated
@@ -256,4 +261,42 @@ export async function createCategory(
     after: { name: category.name },
   });
   return category;
+}
+
+/**
+ * Sets or clears the merchant's logo/cover (the media pass). Membership-scoped:
+ * a merchant member manages their own brand from the portal. The merchant record
+ * belongs to `ctx.merchant.tenantId`, so scoping the write by that tenant id is
+ * correct — the same tenant that owns the merchant.
+ */
+export async function setMerchantImageAsMember(
+  ctx: MerchantScopedContext,
+  kind: "logo" | "cover",
+  change: ImageChange,
+): Promise<void> {
+  const merchant = await findMerchantById(ctx.merchant.tenantId, ctx.merchant.id);
+  if (!merchant) throw new AppError("MERCHANT_NOT_FOUND");
+
+  const currentFileId = kind === "logo" ? merchant.logoFileId : merchant.coverFileId;
+
+  await swapImage(ctx, {
+    tenantId: ctx.merchant.tenantId,
+    scope: `merchants/${ctx.merchant.id}`,
+    ownerId: ctx.merchant.id,
+    kind: kind === "logo" ? "merchant_logo" : "merchant_cover",
+    currentFileId,
+    change,
+    apply: (fileId) =>
+      updateMerchantRow(ctx.merchant.tenantId, ctx.merchant.id, {
+        [kind === "logo" ? "logoFileId" : "coverFileId"]: fileId,
+      }),
+  });
+
+  await recordAudit(ctx, {
+    action: AUDIT_ACTIONS.MERCHANT_UPDATED,
+    resourceType: "merchant",
+    resourceId: ctx.merchant.id,
+    tenantId: ctx.merchant.tenantId,
+    after: { [kind]: !("remove" in change) },
+  });
 }

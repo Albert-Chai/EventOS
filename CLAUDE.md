@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 3 complete** (merchant onboarding). Next: Phase 4 (booths & maps).
+Current state: **Phase 4 complete** (booths, maps & the media pass). Next: Phase 5 (visitor experience).
 
 ---
 
@@ -155,6 +155,15 @@ Rules:
 - The logger redacts anything named `*password*`, `*token*`, `*secret*`,
   `*session*`, `*credential*`, `authorization`, `cookie`, or `*key`. Add to that
   list before logging a new sensitive field, not after.
+- **Media uploads are the one sanctioned service-role use in request paths.**
+  Writing an object to the `eventos-public` bucket needs the service-role Storage
+  API (the anon key can't without Storage RLS, which we don't run). This is _not_
+  a §1 rule-5 violation: Storage is Supabase-owned, not our `public.*` schema, and
+  the object path is **server-constructed** from `ctx.tenant.id` + entity ids, so
+  scoping is never client-controlled. Keep every such use behind
+  `src/server/media/storage.ts` (`getUploadBucket`), which never touches a
+  `public.*` table — the `files` row is always written through the repository
+  layer with a scoped `tenant_id`. Never widen this to read/write our tables.
 
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime.

@@ -2,6 +2,7 @@ import { index, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
 
 import { primaryId, timestamps } from "./_shared";
 import { events } from "./events";
+import { files } from "./files";
 import { tenants } from "./tenants";
 
 /**
@@ -27,8 +28,8 @@ export const eventBranding = pgTable(
     primaryColor: text("primary_color").notNull().default("#0f172a"),
     secondaryColor: text("secondary_color"),
     accentColor: text("accent_color"),
-    logoFileId: uuid("logo_file_id"),
-    coverFileId: uuid("cover_file_id"),
+    logoFileId: uuid("logo_file_id").references(() => files.id, { onDelete: "set null" }),
+    coverFileId: uuid("cover_file_id").references(() => files.id, { onDelete: "set null" }),
 
     ...timestamps,
   },

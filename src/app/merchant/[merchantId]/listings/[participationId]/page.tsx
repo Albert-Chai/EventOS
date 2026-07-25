@@ -5,9 +5,11 @@ import { notFound } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BoothConfirmCard } from "@/features/booths/components/booth-confirm-card";
 import { ListingForm } from "@/features/merchants/components/listing-form";
 import { ParticipationStatusBadge } from "@/features/merchants/components/participation-status-badge";
 import { SubmitControls } from "@/features/merchants/components/submit-controls";
+import { findAssignedBoothForMerchantParticipation } from "@/server/db/repositories/booth-assignments.repository";
 import { listParticipationsForMerchant } from "@/server/db/repositories/participations.repository";
 import { requireMerchantMemberOrRedirect } from "@/server/policies/require-merchant";
 import type { ParticipationStatus } from "@/server/merchants/status";
@@ -33,6 +35,10 @@ export default async function ListingPage({
 
   const status = participation.approvalStatus as ParticipationStatus;
   const editable = status === "draft" || status === "changes_requested";
+  const assignedBooth = await findAssignedBoothForMerchantParticipation(
+    merchantId,
+    participationId,
+  );
 
   return (
     <div className="grid gap-6">
@@ -58,6 +64,21 @@ export default async function ListingPage({
           </AlertTitle>
           <AlertDescription>{participation.reviewNote}</AlertDescription>
         </Alert>
+      ) : null}
+
+      {assignedBooth ? (
+        <BoothConfirmCard
+          merchantId={merchantId}
+          participationId={participationId}
+          assignment={{
+            assignmentId: assignedBooth.assignmentId,
+            assignmentStatus: assignedBooth.assignmentStatus,
+            boothNumber: assignedBooth.boothNumber,
+            boothName: assignedBooth.boothName,
+            zoneName: assignedBooth.zoneName,
+            zoneColor: assignedBooth.zoneColor,
+          }}
+        />
       ) : null}
 
       <Card>

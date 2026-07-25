@@ -40,6 +40,21 @@ export const AUDIT_ACTIONS = {
   LISTING_ITEM_CREATED: "listing_item.created",
   LISTING_ITEM_UPDATED: "listing_item.updated",
   LISTING_ITEM_DELETED: "listing_item.deleted",
+  ZONE_CREATED: "zone.created",
+  ZONE_UPDATED: "zone.updated",
+  ZONE_DELETED: "zone.deleted",
+  MAP_FLOOR_CREATED: "map.floor_created",
+  MAP_FLOOR_UPDATED: "map.floor_updated",
+  MAP_FLOOR_DELETED: "map.floor_deleted",
+  BOOTH_CREATED: "booth.created",
+  BOOTH_UPDATED: "booth.updated",
+  BOOTH_DELETED: "booth.deleted",
+  BOOTH_STATUS_CHANGED: "booth.status_changed",
+  BOOTH_ASSIGNED: "booth.assigned",
+  BOOTH_ASSIGNMENT_CONFIRMED: "booth.assignment_confirmed",
+  BOOTH_UNASSIGNED: "booth.unassigned",
+  FILE_UPLOADED: "file.uploaded",
+  FILE_REMOVED: "file.removed",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

@@ -6,10 +6,12 @@ import { redirect } from "next/navigation";
 import { AppError, isAppError } from "@/lib/api/errors";
 import { requirePermission } from "@/server/policies/require-user";
 import { EVENT_SETTING_KEYS } from "@/server/db/schema";
+import { parseImageChange } from "@/server/services/entity-media.service";
 import {
   createEvent,
   deleteEvent,
   duplicateEvent,
+  setEventBrandingImage,
   setOperatingHours,
   transitionEventStatus,
   updateBranding,
@@ -181,6 +183,10 @@ export async function updateBrandingAction(
       secondaryColor: parsed.data.secondaryColor || null,
       accentColor: parsed.data.accentColor || null,
     });
+    const logo = parseImageChange(formData, "logo");
+    if (logo) await setEventBrandingImage(ctx, eventId, "logo", logo);
+    const cover = parseImageChange(formData, "cover");
+    if (cover) await setEventBrandingImage(ctx, eventId, "cover", cover);
   } catch (error) {
     return errorState(error);
   }

@@ -55,6 +55,11 @@ const nextConfig: NextConfig = {
   // (Linting is a separate CI step; Next 16 no longer runs ESLint during build.)
   typescript: { ignoreBuildErrors: false },
 
+  // Image uploads (map floor plans, merchant logos/covers, item photos) post
+  // multipart FormData through Server Actions. The default 1 MB cap is too low;
+  // the media service enforces the real 6 MB image limit (see media/storage.ts).
+  experimental: { serverActions: { bodySizeLimit: "8mb" } },
+
   images: {
     remotePatterns: supabaseOrigin
       ? [

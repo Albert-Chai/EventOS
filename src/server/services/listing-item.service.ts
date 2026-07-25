@@ -11,6 +11,7 @@ import { findParticipationForMerchant } from "@/server/db/repositories/participa
 import type { ListingItem, MerchantEventParticipation } from "@/server/db/schema";
 import type { ItemAvailability } from "@/server/merchants/status";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
+import { swapImage, type ImageChange } from "./entity-media.service";
 
 /**
  * Listing items are merchant-managed (spec §8.5). Every operation resolves the
@@ -117,6 +118,36 @@ export async function updateItem(
     after: { name: updated.name },
   });
   return updated;
+}
+
+/** Sets or clears an item's photo (the media pass). Editable listings only. */
+export async function setItemImage(
+  ctx: MerchantScopedContext,
+  participationId: string,
+  itemId: string,
+  change: ImageChange,
+): Promise<void> {
+  const participation = await requireEditableParticipation(ctx, participationId);
+  const existing = await findItemInParticipation(participationId, itemId);
+  if (!existing) throw new AppError("NOT_FOUND", { message: "Item not found." });
+
+  await swapImage(ctx, {
+    tenantId: participation.tenantId,
+    scope: `merchants/${ctx.merchant.id}/items`,
+    ownerId: itemId,
+    kind: "listing_item",
+    currentFileId: existing.imageFileId,
+    change,
+    apply: (fileId) => updateItemInParticipation(participationId, itemId, { imageFileId: fileId }),
+  });
+
+  await recordAudit(ctx, {
+    action: AUDIT_ACTIONS.LISTING_ITEM_UPDATED,
+    resourceType: "listing_item",
+    resourceId: itemId,
+    tenantId: ctx.merchant.tenantId,
+    after: { image: !("remove" in change) },
+  });
 }
 
 export async function deleteItem(

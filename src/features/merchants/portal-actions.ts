@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { AppError, isAppError } from "@/lib/api/errors";
 import { requireMerchantMember } from "@/server/policies/require-merchant";
-import { addItem, deleteItem, updateItem } from "@/server/services/listing-item.service";
+import { parseImageChange } from "@/server/services/entity-media.service";
+import {
+  addItem,
+  deleteItem,
+  setItemImage,
+  updateItem,
+} from "@/server/services/listing-item.service";
+import { setMerchantImageAsMember } from "@/server/services/merchant.service";
 import {
   setParticipationStatusAsMerchant,
   updateListingAsMerchant,
@@ -164,4 +171,43 @@ export async function deleteItemAction(formData: FormData): Promise<void> {
   const ctx = await requireMerchantMember(merchantId);
   await deleteItem(ctx, participationId, itemId);
   revalidatePath(`${listingPath(merchantId, participationId)}/products`);
+}
+
+/** Sets or clears an item's photo (the media pass). */
+export async function setItemImageAction(
+  _prev: MerchantFormState,
+  formData: FormData,
+): Promise<MerchantFormState> {
+  const merchantId = formData.get("merchantId")?.toString() ?? "";
+  const participationId = formData.get("participationId")?.toString() ?? "";
+  const itemId = formData.get("itemId")?.toString() ?? "";
+  const change = parseImageChange(formData, "image");
+  if (!change) return { status: "idle" };
+  try {
+    const ctx = await requireMerchantMember(merchantId);
+    await setItemImage(ctx, participationId, itemId, change);
+  } catch (error) {
+    return errorState(error);
+  }
+  revalidatePath(`${listingPath(merchantId, participationId)}/products`);
+  return { status: "success", message: "Photo saved." };
+}
+
+/** Sets or clears the merchant's logo or cover (the media pass). */
+export async function setMerchantImageAction(
+  _prev: MerchantFormState,
+  formData: FormData,
+): Promise<MerchantFormState> {
+  const merchantId = formData.get("merchantId")?.toString() ?? "";
+  const kind = formData.get("kind")?.toString() === "cover" ? "cover" : "logo";
+  const change = parseImageChange(formData, kind);
+  if (!change) return { status: "idle" };
+  try {
+    const ctx = await requireMerchantMember(merchantId);
+    await setMerchantImageAsMember(ctx, kind, change);
+  } catch (error) {
+    return errorState(error);
+  }
+  revalidatePath(`/merchant/${merchantId}`);
+  return { status: "success", message: `${kind === "logo" ? "Logo" : "Cover"} saved.` };
 }

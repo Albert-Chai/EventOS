@@ -14,6 +14,7 @@ import {
   getEventSettings,
   listEventOperatingHours,
 } from "@/server/db/repositories/event-config.repository";
+import { eventHasBooths } from "@/server/db/repositories/booths.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
 
@@ -45,11 +46,12 @@ export default async function PublicEventPage({ params }: Params) {
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [branding, settings, hours, merchants] = await Promise.all([
+  const [branding, settings, hours, merchants, hasMap] = await Promise.all([
     getEventBranding(event.tenantId, event.id),
     getEventSettings(event.tenantId, event.id),
     listEventOperatingHours(event.tenantId, event.id),
     listPublicParticipations(event.id),
+    eventHasBooths(event.id),
   ]);
 
   const primary = branding?.primaryColor ?? "#0f172a";
@@ -130,6 +132,18 @@ export default async function PublicEventPage({ params }: Params) {
               ))}
             </ul>
           </section>
+        ) : null}
+
+        {hasMap ? (
+          <a
+            href={`/${event.tenantSlug}/${event.slug}/map`}
+            className="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-4 text-sm font-medium transition-colors"
+          >
+            <span>🗺️ View the event map</span>
+            <span aria-hidden style={{ color: primary }}>
+              →
+            </span>
+          </a>
         ) : null}
 
         <section className="grid gap-3">

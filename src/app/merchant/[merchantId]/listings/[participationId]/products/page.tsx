@@ -5,9 +5,11 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductsEditor } from "@/features/merchants/components/products-editor";
 import type { ItemView } from "@/features/merchants/components/item-form";
+import { listFilesByIds } from "@/server/db/repositories/files.repository";
 import { listItemsForParticipation } from "@/server/db/repositories/listing-items.repository";
 import { listParticipationsForMerchant } from "@/server/db/repositories/participations.repository";
 import { requireMerchantMemberOrRedirect } from "@/server/policies/require-merchant";
+import { publicFileUrl } from "@/server/services/media.service";
 import type { ParticipationStatus } from "@/server/merchants/status";
 
 export const metadata: Metadata = {
@@ -33,6 +35,13 @@ export default async function ProductsPage({
   const editable = status === "draft" || status === "changes_requested";
   const items = await listItemsForParticipation(participationId);
 
+  const imageIds = items.map((it) => it.imageFileId).filter((id): id is string => Boolean(id));
+  const images = imageIds.length ? await listFilesByIds(participation.tenantId, imageIds) : [];
+  const imageUrlFor = (id: string | null) => {
+    const file = id ? images.find((f) => f.id === id) : null;
+    return file ? publicFileUrl(file) : null;
+  };
+
   const itemViews: ItemView[] = items.map((it) => ({
     id: it.id,
     name: it.name,
@@ -43,6 +52,7 @@ export default async function ProductsPage({
     dietaryTags: (it.dietaryTags ?? []).join(", "),
     isHalal: it.isHalal,
     availability: it.availability,
+    imageUrl: imageUrlFor(it.imageFileId),
   }));
 
   return (

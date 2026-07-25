@@ -4,11 +4,13 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MediaImage } from "@/components/media/media-image";
 import { ITEM_AVAILABILITY_LABELS, type ItemAvailability } from "@/server/merchants/status";
 
 import { formatPrice } from "../format";
 import { deleteItemAction } from "../portal-actions";
 import { ItemForm, type ItemView } from "./item-form";
+import { ItemImageForm } from "./item-image-form";
 
 /**
  * The merchant's products editor. Items can be added/edited/removed only while
@@ -37,8 +39,14 @@ export function ProductsEditor({
           {items.map((item) => (
             <li key={item.id} className="rounded-lg border p-3">
               {editable && editingId === item.id ? (
-                <div className="grid gap-2">
+                <div className="grid gap-4">
                   <ItemForm merchantId={merchantId} participationId={participationId} item={item} />
+                  <ItemImageForm
+                    merchantId={merchantId}
+                    participationId={participationId}
+                    itemId={item.id}
+                    imageUrl={item.imageUrl}
+                  />
                   <Button
                     type="button"
                     variant="ghost"
@@ -51,7 +59,15 @@ export function ProductsEditor({
                 </div>
               ) : (
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  <MediaImage
+                    src={item.imageUrl}
+                    alt={item.name}
+                    width={56}
+                    height={56}
+                    fallback={item.name}
+                    className="size-14 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{item.name}</span>
                       {item.isHalal ? <Badge variant="secondary">Halal</Badge> : null}

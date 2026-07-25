@@ -74,6 +74,7 @@ export async function updateItemInParticipation(
       | "isHalal"
       | "availability"
       | "displayOrder"
+      | "imageFileId"
     >
   >,
 ): Promise<ListingItem | null> {

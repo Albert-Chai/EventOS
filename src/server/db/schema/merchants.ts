@@ -2,6 +2,7 @@ import { index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-co
 
 import type { MerchantStatus } from "../../merchants/status";
 import { primaryId, softDelete, timestamps } from "./_shared";
+import { files } from "./files";
 import type { InvitationStatus } from "./members";
 import { merchantCategories } from "./merchant-categories";
 import { tenants } from "./tenants";
@@ -36,8 +37,8 @@ export const merchants = pgTable(
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
     website: text("website"),
-    logoFileId: uuid("logo_file_id"),
-    coverFileId: uuid("cover_file_id"),
+    logoFileId: uuid("logo_file_id").references(() => files.id, { onDelete: "set null" }),
+    coverFileId: uuid("cover_file_id").references(() => files.id, { onDelete: "set null" }),
     status: text("status").notNull().default("active").$type<MerchantStatus>(),
     createdBy: uuid("created_by"),
     ...timestamps,

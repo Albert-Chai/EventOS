@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 3.
+Current as of Phase 4.
 
 ---
 
@@ -69,7 +69,9 @@ REVOKE ALL ON TABLE public.profiles FROM anon, authenticated;
 
 Because we do not use RLS, the PostgREST roles must not be able to reach our
 tables at all. **Every new table needs the same revoke** — that is what makes
-"no RLS" a decision rather than an oversight.
+"no RLS" a decision rather than an oversight. (Object _storage_ is a separate
+surface: the `eventos-public` bucket is public-read and written only by the
+server-side media service — see CLAUDE.md §6.)
 
 ---
 
@@ -82,18 +84,20 @@ pnpm db:generate     # writes drizzle/NNNN_*.sql
 pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 ```
 
-| File                                       | Kind                                                                                                              |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `drizzle/0000_init.sql`                    | Generated — `profiles`                                                                                            |
-| `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                                         |
-| `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                           |
-| `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed            |
-| `drizzle/0004_tense_virginia_dare.sql`     | Generated — events, event_settings, event_branding, event_operating_hours                                         |
-| `drizzle/0005_events_constraints.sql`      | **Hand-written** — events→auth.users FK, per-tenant `lower(slug)` index, triggers, grants                         |
-| `drizzle/0006_massive_madame_masque.sql`   | Generated — merchants, merchant_members, merchant_invitations, merchant_categories, participations, listing_items |
-| `drizzle/0007_merchants_constraints.sql`   | **Hand-written** — merchant→auth.users FKs, per-tenant `lower(slug)` indexes, triggers, grants                    |
+| File                                       | Kind                                                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `drizzle/0000_init.sql`                    | Generated — `profiles`                                                                                                                |
+| `drizzle/0001_auth_triggers.sql`           | **Hand-written** — FK to `auth.users`, expression index, triggers, grants                                                             |
+| `drizzle/0002_multitenant.sql`             | Generated — tenants, members, roles, invitations, platform_admins, audit, impersonation                                               |
+| `drizzle/0003_multitenant_constraints.sql` | **Hand-written** — auth.users FKs, `lower(slug)` index, triggers, grants, append-only audit, role seed                                |
+| `drizzle/0004_tense_virginia_dare.sql`     | Generated — events, event_settings, event_branding, event_operating_hours                                                             |
+| `drizzle/0005_events_constraints.sql`      | **Hand-written** — events→auth.users FK, per-tenant `lower(slug)` index, triggers, grants                                             |
+| `drizzle/0006_massive_madame_masque.sql`   | Generated — merchants, merchant_members, merchant_invitations, merchant_categories, participations, listing_items                     |
+| `drizzle/0007_merchants_constraints.sql`   | **Hand-written** — merchant→auth.users FKs, per-tenant `lower(slug)` indexes, triggers, grants                                        |
+| `drizzle/0008_petite_harry_osborn.sql`     | Generated — files, zones, maps, map_floors, booths, booth_assignments (+ FKs from the reserved `*_file_id` columns)                   |
+| `drizzle/0009_booths_constraints.sql`      | **Hand-written** — files/assignment→auth.users FKs, `lower(booth_number)` + "one active assignment" partial indexes, triggers, grants |
 
-`_journal.json` lists all eight; hand-written files must be added to it manually.
+`_journal.json` lists all ten; hand-written files must be added to it manually.
 
 ### Why some objects are missing from the schema files
 
@@ -174,6 +178,32 @@ and `listing_items`. Notes:
 - Cross-schema `auth.users` FKs (`merchant_members.user_id` etc.) and the
   expression indexes are hand-written in 0007.
 
+### Phase 4 additions
+
+`files` (the media record), plus the floor plan: `zones`, `maps`, `map_floors`,
+`booths`, `booth_assignments`. Notes:
+
+- **The media pass.** `files` is one row per object in the `eventos-public`
+  bucket, written only through the repository layer with a scoped `tenant_id`.
+  The reserved `*_file_id` columns on `event_branding`, `merchants`, and
+  `listing_items` now carry same-schema FKs to `files` (`ON DELETE SET NULL`), as
+  does `map_floors.image_file_id`. Objects are written by the one sanctioned
+  service-role Storage path (`src/server/media/storage.ts`) to a
+  server-constructed, tenant-leading key — see CLAUDE.md §6.
+- **Booth coordinates are normalized 0..1** (`double precision`), taken as the
+  booth's _centre_ on the floor image, so a booth renders correctly at any size.
+- **Booth-number uniqueness is per event** — a `lower(booth_number)` expression
+  index (hand-written in 0009).
+- **One active assignment per booth and per participation** — partial unique
+  indexes `WHERE status <> 'cancelled'`, so reassigning is cancel-then-insert and
+  the assignment history is preserved. The booth's own `status` is kept in step by
+  the service (`src/server/booths/status.ts`).
+- **The public map read filters by public status** (`listBoothsForEventPublic`):
+  a booth links to a merchant only when the assignment is active, the
+  participation is `approved`, and the merchant is active — the Phase 2/3 seam.
+- Cross-schema `auth.users` FKs (`files.created_by`,
+  `booth_assignments.assigned_by`) are hand-written in 0009.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -211,7 +241,7 @@ Booths and analytics rows in spec §38 are added as their phases land.
 | 1 ✅  | `tenants`, `tenant_members`, `tenant_member_roles`, `tenant_invitations`, `roles`, `platform_admins`, `audit_logs`, `impersonation_sessions`                        |
 | 2 ✅  | `events`, `event_settings`, `event_branding`, `event_operating_hours`                                                                                               |
 | 3 ✅  | `merchants`, `merchant_members`, `merchant_invitations`, `merchant_categories`, `merchant_event_participations`, `listing_items` (`imports`/`import_rows` deferred) |
-| 4     | `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                                        |
+| 4 ✅  | `files`, `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                               |
 | 5     | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
 | 6     | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements`                                                                                        |
 | 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
