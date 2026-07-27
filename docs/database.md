@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 7.
+Current as of Phase 8 (all §34 build phases complete).
 
 ---
 
@@ -102,6 +102,8 @@ pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 | `drizzle/0013_monetization_constraints.sql`| **Hand-written** — `featured_placements.created_by → auth.users` (SET NULL) FK, the "one open placement" partial unique index, triggers on plans/subscriptions/invoices/featured_placements, grants |
 | `drizzle/0014_opposite_bushwacker.sql`     | Generated — analytics_events, daily_event_metrics, daily_merchant_metrics, qr_codes, qr_scan_events (+ FKs to tenants/events/merchants/participations/items/booths/zones/visitors) |
 | `drizzle/0015_analytics_constraints.sql`   | **Hand-written** — `qr_codes.created_by → auth.users` (SET NULL) FK, the "one active code per target" partial unique index, triggers on daily_event_metrics/daily_merchant_metrics/qr_codes (not the append-only logs), grants |
+| `drizzle/0016_misty_vin_gonzales.sql`      | Generated — vouchers, voucher_codes, voucher_claims, voucher_redemptions, campaigns, campaign_audiences, campaign_messages, notification_deliveries (+ the three unique constraints that make double-claim/double-redeem impossible) |
+| `drizzle/0017_vouchers_constraints.sql`    | **Hand-written** — `vouchers.created_by` / `voucher_redemptions.redeemed_by_user_id` / `campaigns.created_by → auth.users` (SET NULL) FKs, the active-voucher partial index, triggers on the 7 mutable tables (not append-only voucher_redemptions), grants |
 
 `_journal.json` lists all fourteen; hand-written files must be added to it manually.
 
@@ -292,6 +294,38 @@ Analytics: `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`,
 - Cross-schema `auth.users` FK (`qr_codes.created_by`) is hand-written in 0015;
   every table repeats the `REVOKE ALL … FROM anon, authenticated`.
 
+### Phase 8 additions
+
+Vouchers: `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`.
+Campaigns: `campaigns`, `campaign_audiences`, `campaign_messages`,
+`notification_deliveries`. Notes:
+
+- **`vouchers`** is tenant + event scoped with a **nullable `merchant_id`** — null
+  is an event-wide voucher, set is merchant-specific (and only that merchant may
+  redeem it). `claimed_count` / `redeemed_count` are denormalized counters
+  maintained **inside the claim/redeem transactions**, which is what
+  `total_quantity` is checked against.
+- **One code per claim.** `voucher_codes.code` is globally unique;
+  `voucher_claims.voucher_code_id` is unique (a claim owns exactly one code); and
+  **`voucher_redemptions.voucher_code_id` is unique**, which is what makes a
+  double redemption impossible *at the database level* rather than merely
+  unlikely. The per-visitor limit is **not** a unique index (it is configurable
+  per voucher) — it is counted inside the claim transaction while the voucher row
+  is locked `FOR UPDATE`, so concurrent claims can't both pass.
+- **`voucher_redemptions` is append-only** (created_at only, no trigger, like
+  `qr_scan_events`); a redemption is a historical fact.
+- **Campaign content is separate from status**: `campaign_messages` holds the
+  per-channel copy a delivery carried, `campaign_audiences` the targeting rule
+  (resolved to visitor ids **in the repository**, always re-derived under
+  tenant + event scope, never a stored recipient list).
+- **`notification_deliveries`** is the per-recipient record behind campaign
+  reporting; `campaign_id` is nullable so transactional notifications can reuse
+  it later. Delivery is simulated in Phase 8 — rows are real, transmission isn't.
+- Cross-schema `auth.users` FKs (`vouchers.created_by`,
+  `voucher_redemptions.redeemed_by_user_id`, `campaigns.created_by`) are
+  hand-written in 0017; every table repeats the
+  `REVOKE ALL … FROM anon, authenticated`.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -324,8 +358,11 @@ demo tenant on **Growth** with one paid `invoice`, and features the seeded
 merchant (a `featured_placements` row + `featured_rank`). Phase 7 seeds ~5 days of
 `analytics_events` for the published event (with matching `daily_*_metrics`
 rollups), two `qr_codes` (`/q/seedevt1`, `/q/seedmrc1`), and the merchant code's
-scan log. Idempotent. Refuses to run when `NODE_ENV=production` or when the
-connection string looks like production.
+scan log. Phase 8 turns on `enable_vouchers` for the demo event and seeds two
+active vouchers, two claims by the demo visitor (one redeemed, `SEEDNASI02` left
+unredeemed so the redemption flow can be tried by hand), and one sent campaign
+with a recorded delivery. Idempotent. Refuses to run when `NODE_ENV=production`
+or when the connection string looks like production.
 
 ---
 
@@ -340,6 +377,6 @@ connection string looks like production.
 | 5 ✅  | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
 | 6 ✅  | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements` (`subscription_items`/`payments` deferred)                                              |
 | 7 ✅  | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
-| 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                                                   |
+| 8 ✅  | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`, `campaign_audiences`, `campaign_messages`, `notification_deliveries`             |
 
 Full target list: spec §12.

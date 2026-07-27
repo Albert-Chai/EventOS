@@ -21,6 +21,9 @@ import {
   analyticsEvents,
   boothAssignments,
   booths,
+  campaignAudiences,
+  campaignMessages,
+  campaigns,
   dailyEventMetrics,
   dailyMerchantMetrics,
   eventBranding,
@@ -35,6 +38,7 @@ import {
   merchantEventParticipations,
   merchantMembers,
   merchants,
+  notificationDeliveries,
   platformAdmins,
   profiles,
   featuredPlacements,
@@ -49,6 +53,10 @@ import {
   visitorFavourites,
   visitorRecentViews,
   visitors,
+  voucherClaims,
+  voucherCodes,
+  voucherRedemptions,
+  vouchers,
   zones,
 } from "../src/server/db/schema";
 import { PLAN_TIERS, PLANS } from "../src/server/billing/plans";
@@ -986,6 +994,169 @@ async function main() {
         console.log(
           `  + ${evRows.length} analytics events over 5 days, 2 QR codes (/q/seedevt1, /q/seedmrc1), ${merchantScanCount} scans, daily rollups`,
         );
+
+        // --- Phase 8: vouchers, a claim + redemption, and a sent campaign ----
+        // Vouchers need the event's `enable_vouchers` toggle on, or the public
+        // page 404s — turn it on for the demo event.
+        await db
+          .update(eventSettings)
+          .set({ enableVouchers: true })
+          .where(eq(eventSettings.eventId, streetEats.id));
+
+        // Idempotent: clear this event's voucher graph, then rebuild. Codes,
+        // claims and redemptions cascade from `vouchers`.
+        await db.delete(vouchers).where(eq(vouchers.eventId, streetEats.id));
+
+        const voucherEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const [merchantVoucher] = await db
+          .insert(vouchers)
+          .values({
+            tenantId: tenant.id,
+            eventId: streetEats.id,
+            merchantId: merchant.id,
+            title: "RM5 off nasi lemak",
+            description: "Get RM5 off any nasi lemak set at Nasi Lemak Bangsar.",
+            terms: "One per visitor. Not valid with other promotions.",
+            voucherType: "discount_amount",
+            discountAmountCents: 500,
+            status: "active",
+            endsAt: voucherEnd,
+            totalQuantity: 100,
+            perVisitorLimit: 1,
+            createdBy: ownerId,
+          })
+          .returning();
+
+        await db.insert(vouchers).values({
+          tenantId: tenant.id,
+          eventId: streetEats.id,
+          title: "10% off everything",
+          description: "Event-wide: 10% off at any participating stall.",
+          terms: "Valid all weekend.",
+          voucherType: "discount_percent",
+          discountPercent: 10,
+          status: "active",
+          endsAt: voucherEnd,
+          perVisitorLimit: 2,
+          createdBy: ownerId,
+        });
+
+        // The demo visitor claims the merchant voucher, and it is redeemed —
+        // so the "my vouchers" page and the merchant's redemption history both
+        // have something real in them.
+        if (demoVisitor && merchantVoucher) {
+          const [claimedCode] = await db
+            .insert(voucherCodes)
+            .values({
+              tenantId: tenant.id,
+              voucherId: merchantVoucher.id,
+              code: "SEEDNASI01",
+              status: "redeemed",
+              expiresAt: voucherEnd,
+            })
+            .returning();
+          const [seedClaim] = await db
+            .insert(voucherClaims)
+            .values({
+              tenantId: tenant.id,
+              voucherId: merchantVoucher.id,
+              eventId: streetEats.id,
+              visitorId: demoVisitor.id,
+              voucherCodeId: claimedCode!.id,
+              status: "redeemed",
+            })
+            .returning();
+          await db.insert(voucherRedemptions).values({
+            tenantId: tenant.id,
+            voucherId: merchantVoucher.id,
+            voucherCodeId: claimedCode!.id,
+            claimId: seedClaim!.id,
+            eventId: streetEats.id,
+            merchantId: merchant.id,
+            visitorId: demoVisitor.id,
+            redeemedByMerchantId: merchant.id,
+            notes: "Seeded redemption",
+          });
+
+          // A second, still-unredeemed code so the visitor has one to show.
+          const [openCode] = await db
+            .insert(voucherCodes)
+            .values({
+              tenantId: tenant.id,
+              voucherId: merchantVoucher.id,
+              code: "SEEDNASI02",
+              expiresAt: voucherEnd,
+            })
+            .returning();
+          await db.insert(voucherClaims).values({
+            tenantId: tenant.id,
+            voucherId: merchantVoucher.id,
+            eventId: streetEats.id,
+            visitorId: demoVisitor.id,
+            voucherCodeId: openCode!.id,
+          });
+
+          await db
+            .update(vouchers)
+            .set({ claimedCount: 2, redeemedCount: 1 })
+            .where(eq(vouchers.id, merchantVoucher.id));
+        }
+
+        // A sent campaign with recorded deliveries, so the report renders.
+        await db.delete(campaigns).where(eq(campaigns.eventId, streetEats.id));
+        const [campaign] = await db
+          .insert(campaigns)
+          .values({
+            tenantId: tenant.id,
+            eventId: streetEats.id,
+            name: "Opening weekend announcement",
+            description: "Tell everyone who browsed that we open Saturday.",
+            channel: "email",
+            status: "sent",
+            sentAt: now,
+            createdBy: ownerId,
+          })
+          .returning();
+        const [campaignMessage] = await db
+          .insert(campaignMessages)
+          .values({
+            tenantId: tenant.id,
+            campaignId: campaign!.id,
+            channel: "email",
+            subject: "KL Street Eats opens this Saturday",
+            body: "Doors open 10am. Come hungry — 40+ stalls, live music, and vouchers to claim.",
+            ctaLabel: "See the lineup",
+            ctaUrl: `/${tenant.slug}/${streetEats.slug}/merchants`,
+          })
+          .returning();
+        await db.insert(campaignAudiences).values({
+          tenantId: tenant.id,
+          campaignId: campaign!.id,
+          audienceType: "all_visitors",
+          estimatedSize: 1,
+        });
+        if (demoVisitor) {
+          await db.insert(notificationDeliveries).values({
+            tenantId: tenant.id,
+            campaignId: campaign!.id,
+            messageId: campaignMessage!.id,
+            eventId: streetEats.id,
+            visitorId: demoVisitor.id,
+            channel: "email",
+            status: "opened",
+            provider: "simulated",
+            sentAt: now,
+            openedAt: now,
+          });
+          await db
+            .update(campaigns)
+            .set({ recipientCount: 1, sentCount: 1 })
+            .where(eq(campaigns.id, campaign!.id));
+        }
+
+        console.log(
+          "  + 2 vouchers (1 claimed + redeemed, code SEEDNASI02 unused), 1 sent campaign with a delivery",
+        );
       }
     }
 
@@ -1011,6 +1182,10 @@ async function main() {
     console.log("  /kl-food-weekend/street-eats/map            → the interactive booth map");
     console.log("  /kl-food-weekend/street-eats/merchants      → searchable merchant directory");
     console.log("  /kl-food-weekend/street-eats/favourites     → saved merchants (per device)");
+    console.log("  /kl-food-weekend/street-eats/vouchers       → claimable vouchers");
+    console.log("  /kl-food-weekend/street-eats/vouchers/mine  → claimed codes (cookie visitor)");
+    console.log("  /q/seedmrc1                                 → a trackable QR redirect");
+    console.log("\nSeeded voucher code SEEDNASI02 is unredeemed — try it at /merchant/…/redeem.");
   } finally {
     await sql.end();
   }

@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 7 complete (analytics — event log, organizer & merchant dashboards, trackable QR codes, daily rollups & CSV export) — see [docs/phase-7-plan.md](docs/phase-7-plan.md); next is Phase 8
+- **Current phase:** Phase 8 complete — **all nine §34 build phases (0–8) are done**. The last added vouchers & campaigns (claim, redeem, campaign reporting) — see [docs/phase-8-plan.md](docs/phase-8-plan.md)
 
 ---
 
@@ -99,7 +99,12 @@ invoices) and each event's **Analytics** tab; `merchant.owner@eventos.test` sees
 - `/kl-food-weekend/street-eats/merchants` — the searchable merchant directory
 - `/kl-food-weekend/street-eats/favourites` — saved merchants (set the cookie
   `eventos_vid=seed-demo-visitor` to see the seeded favourite)
+- `/kl-food-weekend/street-eats/vouchers` — claimable vouchers
+- `/kl-food-weekend/street-eats/vouchers/mine` — claimed codes, with QR
 - `/q/seedmrc1` — a trackable QR redirect to the merchant listing (logs a scan)
+
+The seeded code `SEEDNASI02` is unredeemed — try it as `merchant.owner@eventos.test`
+at `/merchant/<id>/redeem` to see the validation flow (a second attempt is refused).
 
 ### 4. Optional — Google sign-in
 
@@ -204,4 +209,4 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | 5     | Visitor experience — directory search, favourites, recently-viewed, PWA | ✅ Complete |
 | 6     | Monetization — plans, usage limits, simulated billing, featured listings | ✅ Complete |
 | 7     | Analytics — event log, organizer & merchant dashboards, QR tracking, CSV export | ✅ Complete |
-| 8     | Vouchers and campaigns                                            | Next        |
+| 8     | Vouchers and campaigns — claim, redeem, campaign reporting        | ✅ Complete |

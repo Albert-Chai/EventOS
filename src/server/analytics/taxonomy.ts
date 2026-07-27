@@ -42,11 +42,14 @@ export function isAnalyticsEvent(value: string): value is AnalyticsEventName {
 }
 
 /**
- * The subset a public browser beacon (`<Track>`) is allowed to send. Favourite
- * and QR-scan events only ever originate server-side (inside `setFavourite` and
- * the `/q` redirect), so the beacon can never forge them — an attacker replaying
- * the public action can still only inflate view-type counts, never fabricate a
- * favourite or a scan.
+ * The subset a public browser beacon (`<Track>`) is allowed to send.
+ *
+ * Every entry is a **view-type** event. The state-changing ones —
+ * `merchant_favourited`, `qr_scanned`, `voucher_claimed`, `voucher_redeemed` —
+ * only ever originate server-side (inside `setFavourite`, the `/q` redirect, and
+ * the voucher claim/redeem services), so the beacon can never forge them. An
+ * attacker replaying the public action can still only inflate view counts, never
+ * fabricate a favourite, a scan, or a voucher claim.
  */
 export const CLIENT_TRACKABLE = [
   "event_viewed",
@@ -57,6 +60,7 @@ export const CLIENT_TRACKABLE = [
   "map_opened",
   "share_clicked",
   "pwa_installed",
+  "voucher_viewed",
 ] as const satisfies readonly AnalyticsEventName[];
 
 export type ClientTrackableEvent = (typeof CLIENT_TRACKABLE)[number];

@@ -57,6 +57,15 @@ async function resolveVisitorForAction(): Promise<Visitor> {
   return found ?? insertVisitor({ anonymousId });
 }
 
+/**
+ * The same lazy visitor resolution, exposed for the Phase 8 voucher claim — a
+ * claim must be owned by a `visitors` row, so claiming is (like favouriting) one
+ * of the few public actions that materialises one. Server Action only.
+ */
+export async function resolveVisitorForClaim(): Promise<Visitor> {
+  return resolveVisitorForAction();
+}
+
 /** Read-only visitor lookup for Server Components. Returns null if no cookie/row. */
 export async function getVisitorForRead(): Promise<Visitor | null> {
   const jar = await cookies();

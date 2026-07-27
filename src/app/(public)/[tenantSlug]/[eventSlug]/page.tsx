@@ -70,6 +70,7 @@ export default async function PublicEventPage({ params }: Params) {
   const showHours = (settings?.showOperatingHours ?? true) && hours.length > 0;
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
   const enableFavourites = settings?.enableFavourites ?? true;
+  const enableVouchers = settings?.enableVouchers ?? false;
   const MERCHANT_PREVIEW = 8;
   const previewMerchants = merchants.slice(0, MERCHANT_PREVIEW);
 
@@ -94,7 +95,7 @@ export default async function PublicEventPage({ params }: Params) {
       </header>
 
       <div className="grid gap-8 px-4 py-8 sm:px-8">
-        {merchants.length > 0 || hasMap || enableFavourites ? (
+        {merchants.length > 0 || hasMap || enableFavourites || enableVouchers ? (
           <nav className="flex flex-wrap gap-2">
             {merchants.length > 0 ? (
               <Link
@@ -118,6 +119,14 @@ export default async function PublicEventPage({ params }: Params) {
                 className="hover:bg-muted/50 flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors"
               >
                 ♥ Favourites
+              </Link>
+            ) : null}
+            {enableVouchers ? (
+              <Link
+                href={`${baseHref}/vouchers`}
+                className="hover:bg-muted/50 flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors"
+              >
+                🎟️ Vouchers
               </Link>
             ) : null}
           </nav>

@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 7 complete** (analytics — a raw event log, organizer & merchant dashboards, trackable QR codes, daily rollups & CSV export). Next: Phase 8 (vouchers & campaigns).
+Current state: **Phase 8 complete** — the §34 build phases (0–8) are all done. Vouchers & campaigns shipped last: claimable vouchers with per-claim codes, merchant redemption, and simulated-delivery campaigns with reporting.
 
 ---
 
@@ -194,6 +194,31 @@ status scheduler). QR generation is an audited organizer mutation
 (`qr.code_created`); the high-volume tracking writes are **not** audited (§23 is
 for actor state-changes, not visitor telemetry). Only an approximate `country`
 (from `x-vercel-ip-country`) is ever stored — never precise geo (§8.10).
+
+**Vouchers & campaigns (Phase 8):** claiming is **transactional** —
+`claimVoucherTx` locks the voucher row (`SELECT … FOR UPDATE`) *before* reading
+the quantity and per-visitor counts, so a limited voucher can never be
+over-issued by concurrent claims. Never "optimize" that lock away. Redemption's
+real guarantee is `unique(voucher_code_id)` on `voucher_redemptions`: the service
+pre-checks for a friendly error, but the constraint is what stops a double spend
+under a race — keep both. A voucher claim is one of the few public paths that
+creates a `visitors` row (`resolveVisitorForClaim`); browsing still writes
+nothing. The public voucher surface is gated by the event's `enable_vouchers`
+setting and, like a draft event, a disabled one **404s** rather than explaining
+itself. Vouchers/campaigns are plan entitlements (`requirePlanFeature`), and this
+phase is where the §22 ledger metrics (`voucher_claims`, `voucher_redemptions`,
+`email_sends`/`push_sends`) finally get written.
+
+**Campaign delivery is simulated.** `server/notifications/provider.ts` is the
+seam: deliveries are recorded per recipient and marked sent, but nothing is
+transmitted. Supabase's built-in email was evaluated and **rejected** — it is
+auth-transactional only (confirm/magic-link/reset/invite), hard rate-limited, and
+the only way to send arbitrary mail through it is to abuse
+`inviteUserByEmail`/`generateLink`, which creates accounts and mails auth links.
+Do not build campaigns on it. Real sending is one adapter implementing
+`NotificationProvider` plus a key (`EMAIL_PROVIDER`/`RESEND_API_KEY` are already
+reserved). Any UI showing send counts must keep saying they're simulated until
+an adapter lands.
 
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime.

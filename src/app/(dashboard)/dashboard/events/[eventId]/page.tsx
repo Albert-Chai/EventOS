@@ -50,6 +50,8 @@ export default async function EventOverviewPage({
   const canDelete = ctx.permissions.has("event.delete");
   const canViewMerchants = ctx.permissions.has("merchant.view");
   const canViewAnalytics = ctx.permissions.has("analytics.view");
+  const canManageVouchers = ctx.permissions.has("voucher.manage");
+  const canManageCampaigns = ctx.permissions.has("campaign.manage");
   const canManageBooths = ctx.permissions.has("booth.manage");
   const canManageMap = ctx.permissions.has("map.manage");
   const mapUploaded = floors.some((f) => f.imageFileId);
@@ -207,6 +209,22 @@ export default async function EventOverviewPage({
                     className={buttonVariants({ variant: "outline", size: "sm" })}
                   >
                     Floor plans
+                  </Link>
+                ) : null}
+                {canManageVouchers ? (
+                  <Link
+                    href={`/dashboard/events/${event.id}/vouchers`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Vouchers
+                  </Link>
+                ) : null}
+                {canManageCampaigns ? (
+                  <Link
+                    href={`/dashboard/events/${event.id}/campaigns`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Campaigns
                   </Link>
                 ) : null}
               </CardContent>

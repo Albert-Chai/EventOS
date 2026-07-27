@@ -15,6 +15,9 @@
  * subscriptions, invoices, usage_records (append-only ledger), featured_placements.
  * Phase 7: analytics — analytics_events (append-only raw log), daily_event_metrics
  * + daily_merchant_metrics (rollups), qr_codes + qr_scan_events (trackable QR).
+ * Phase 8: vouchers — vouchers, voucher_codes (one per claim), voucher_claims,
+ * voucher_redemptions (append-only); and campaigns — campaigns,
+ * campaign_audiences, campaign_messages, notification_deliveries.
  */
 export * from "./profiles";
 export * from "./tenants";
@@ -49,3 +52,11 @@ export * from "./daily-event-metrics";
 export * from "./daily-merchant-metrics";
 export * from "./qr-codes";
 export * from "./qr-scan-events";
+export * from "./vouchers";
+export * from "./voucher-codes";
+export * from "./voucher-claims";
+export * from "./voucher-redemptions";
+export * from "./campaigns";
+export * from "./campaign-audiences";
+export * from "./campaign-messages";
+export * from "./notification-deliveries";

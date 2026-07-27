@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 7. Update this file whenever the shape changes
+Current as of Phase 8 (all §34 build phases complete). Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -392,3 +392,51 @@ rollups, and CSV export.
   source parsing, CSV escaping, taxonomy guards, and day-key math;
   `tests/e2e/analytics.spec.ts` walks the `/q` redirect and the organizer
   dashboard.
+
+## 15. Phase 8 — vouchers & campaigns (shipped)
+
+Claimable promotions, merchant redemption, and campaigns with reporting — the
+last of the §34 build phases.
+
+- **Claiming is transactional, and that is the whole design.** `claimVoucherTx`
+  locks the voucher row (`SELECT … FOR UPDATE`) *before* reading the quantity and
+  per-visitor counts, then mints the code, writes the claim, and bumps the
+  counter — all inside one transaction. Without the lock, two concurrent claims
+  both see the last voucher and both win; an integration test fires four at once
+  against a one-quantity voucher and asserts exactly one succeeds.
+- **One unique code per claim.** A claim mints a globally unique base62 code
+  (Phase 7's `generateShortCode`), shown as text and as a QR (Phase 7's
+  renderer). The per-visitor limit is enforced by counting under the lock, not by
+  an index, because it is configurable per voucher.
+- **Redemption's guarantee is a constraint, not a check.**
+  `unique(voucher_code_id)` on `voucher_redemptions` makes a double redeem
+  impossible at the database level; the service pre-checks only to produce a
+  friendly message, and treats the constraint violation as
+  `VOUCHER_ALREADY_REDEEMED`. Merchant staff redeem in the portal (scoped by
+  membership — another merchant's voucher is refused), organizer checkers at
+  `/dashboard/redeem` via `voucher.redeem`.
+- **The public surface follows the established seam**: tenant + event from the
+  URL slug, visitor from the `eventos_vid` cookie, and a voucher id validated
+  against the resolved public event. `enable_vouchers` off ⇒ the page **404s**,
+  exactly like a draft event. Claiming is one of the few public paths that
+  materialises a `visitors` row; browsing still writes nothing.
+- **Campaigns**: audiences are resolved to visitor ids **in the repository**,
+  re-derived under tenant + event scope at create *and* send time (never a stored
+  recipient list). A send writes a `notification_deliveries` row per recipient and
+  settles the campaign; `sent` is terminal, so a double-submit cannot send twice.
+  Reporting rolls delivery statuses into delivery/open/click rates.
+- **Delivery is simulated**, behind `server/notifications/provider.ts`. Supabase's
+  built-in email is auth-transactional only and was deliberately rejected (see
+  `CLAUDE.md` §6); real sending is one adapter plus a key, with no schema, service
+  or UI change. Every surface showing send counts says they're simulated.
+- **The hooks earlier phases reserved are now wired**: `requirePlanFeature` for
+  the `vouchers`/`campaigns` entitlements, the §22 ledger metrics
+  (`voucher_claims`, `voucher_redemptions`, `email_sends`/`push_sends`), the §25
+  analytics names (`voucher_viewed`/`_claimed`/`_redeemed`), and the
+  `voucher.*`/`campaign.*` audit actions.
+- **Proven** — `tests/integration/vouchers.test.ts` covers claim limits, the
+  concurrency guard, sold-out, draft invisibility, double-redeem rejection,
+  audience resolution, and tenant isolation throughout;
+  `tests/unit/vouchers.test.ts` covers both status machines, claimability,
+  discount labels and the report maths; `tests/e2e/vouchers.spec.ts` walks
+  claim → redeem → refused second redeem.

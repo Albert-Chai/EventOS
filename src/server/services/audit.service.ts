@@ -60,6 +60,14 @@ export const AUDIT_ACTIONS = {
   MERCHANT_UNFEATURED: "merchant.unfeatured",
   QR_CODE_CREATED: "qr.code_created",
   QR_CODE_UPDATED: "qr.code_updated",
+  VOUCHER_CREATED: "voucher.created",
+  VOUCHER_UPDATED: "voucher.updated",
+  VOUCHER_STATUS_CHANGED: "voucher.status_changed",
+  VOUCHER_REDEEMED: "voucher.redeemed",
+  CAMPAIGN_CREATED: "campaign.created",
+  CAMPAIGN_UPDATED: "campaign.updated",
+  CAMPAIGN_SCHEDULED: "campaign.scheduled",
+  CAMPAIGN_SENT: "campaign.sent",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
