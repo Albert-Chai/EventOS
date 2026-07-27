@@ -1,0 +1,9 @@
+merchant_slug,item_name,description,price,promo_price,currency,dietary_tags,is_halal,availability,display_order
+nasi-kandar-lily,Ayam Goreng Rice,"Crispy fried chicken over rice with mixed curry gravy.",12.00,,MYR,spicy,yes,available,1
+nasi-kandar-lily,Fish Head Curry Rice,"Rich curry with a whole fish head — for two.",22.00,18.00,MYR,spicy;contains fish,yes,available,2
+char-koay-teow-ah-leng,Char Koay Teow (Regular),"Flat rice noodles with prawns, cockles, egg and chives.",10.00,,MYR,contains shellfish,no,available,1
+char-koay-teow-ah-leng,Char Koay Teow (Special),"Extra prawns and a duck egg.",15.00,,MYR,contains shellfish,no,available,2
+teh-tarik-corner,Teh Tarik,"Hot pulled milk tea.",3.50,,MYR,vegetarian,yes,available,1
+teh-tarik-corner,Cendol,"Shaved ice, coconut milk, palm sugar and green rice-flour jelly.",5.00,,MYR,vegetarian,yes,available,2
+apom-manis-mak,Apom Manis (3 pcs),"Sweet coconut pancakes.",6.00,,MYR,vegetarian,yes,available,1
+apom-manis-mak,Apom with Banana,"Apom manis topped with caramelised banana.",8.00,,MYR,vegetarian,yes,sold_out,2

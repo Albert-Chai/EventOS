@@ -1,0 +1,2 @@
+workspace_name,workspace_slug,event_name,event_slug,event_type,short_description,description,venue_name,venue_address,timezone,start_date,end_date,visibility,primary_color,enable_vouchers,enable_maps
+Penang Food Fiesta,penang-food-fiesta,George Town Street Eats,street-eats,food_festival,A weekend of Penang's best street food,"Come hungry. 20+ hawkers, live music, and family-friendly fun across three days at the Esplanade.",Padang Kota Lama,"Jalan Padang Kota Lama, George Town, 10200 Penang",Asia/Kuala_Lumpur,2026-08-15,2026-08-17,public,#e11d48,yes,no

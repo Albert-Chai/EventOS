@@ -23,6 +23,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "content:import": "tsx scripts/import-content.ts",
     "db:studio": "drizzle-kit studio",
     "verify": "pnpm typecheck && pnpm lint && pnpm test"
   },

@@ -1,0 +1,5 @@
+merchant_slug,merchant_name,category,description,contact_email,contact_phone,website,zone,featured,listing_title,listing_description
+nasi-kandar-lily,Nasi Kandar Lily,Malay,"Family-run nasi kandar since 1974 — famous for its ayam goreng and mixed curry rice.",hello@lilykandar.example,+60 4-123 4567,https://lilykandar.example,Zone A,yes,Nasi Kandar Lily,"Our signature curry-drenched rice, straight from the Esplanade stall."
+char-koay-teow-ah-leng,Ah Leng Char Koay Teow,Chinese,"Wok-fried flat noodles with prawns, cockles and Chinese sausage. Smoky, not sweet.",ahleng@example,+60 12-345 6789,,Zone A,no,,
+teh-tarik-corner,Teh Tarik Corner,Drinks,"Pulled milk tea, kopi, and cendol to cool you down between bites.",,+60 16-222 3333,,Zone B,no,,
+apom-manis-mak,Mak's Apom Manis,Desserts,"Griddled coconut pancakes, crisp at the edge and soft in the middle.",,,,Zone B,yes,Mak's Apom Manis,"Made to order — watch them cook on the cast-iron griddle."

@@ -1,0 +1,4 @@
+merchant_slug,title,description,terms,type,discount_percent,discount_amount,min_spend,total_quantity,per_visitor_limit,starts_date,ends_date,status
+,Opening Day 20% Off,"20% off your whole order on day one.","One per visitor. Valid 15 Aug only.",discount_percent,20,,,200,1,2026-08-15,2026-08-16,active
+nasi-kandar-lily,RM3 Off Nasi Kandar,"RM3 off any rice set at Nasi Kandar Lily.","Min spend RM12.",discount_amount,,3.00,12.00,100,1,2026-08-15,2026-08-18,active
+apom-manis-mak,Free Apom with Any Drink,"Get 3 free apom manis with any drink purchase.","While stocks last.",freebie,,,,50,1,2026-08-15,2026-08-18,active
