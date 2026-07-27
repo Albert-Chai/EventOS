@@ -340,6 +340,47 @@ export async function setParticipationFeaturedRank(
     );
 }
 
+/**
+ * Server-resolved public-listing target for a merchant's participation — the
+ * pieces needed to build the `/{tenant}/{event}/{merchant}` QR path without
+ * trusting any client-supplied slug. Scoped by `merchant_id` (the merchant seam).
+ */
+export async function findMerchantListingTarget(
+  merchantId: string,
+  participationId: string,
+): Promise<{
+  participationId: string;
+  eventId: string;
+  eventSlug: string;
+  tenantSlug: string;
+  merchantSlug: string;
+  approvalStatus: string;
+  eventStatus: string;
+} | null> {
+  const [row] = await db
+    .select({
+      participationId: merchantEventParticipations.id,
+      eventId: events.id,
+      eventSlug: events.slug,
+      tenantSlug: tenants.slug,
+      merchantSlug: merchants.slug,
+      approvalStatus: merchantEventParticipations.approvalStatus,
+      eventStatus: events.status,
+    })
+    .from(merchantEventParticipations)
+    .innerJoin(events, eq(events.id, merchantEventParticipations.eventId))
+    .innerJoin(tenants, eq(tenants.id, merchantEventParticipations.tenantId))
+    .innerJoin(merchants, eq(merchants.id, merchantEventParticipations.merchantId))
+    .where(
+      and(
+        eq(merchantEventParticipations.id, participationId),
+        eq(merchantEventParticipations.merchantId, merchantId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 /** The busiest event's merchant count for a tenant — the per-event limit's binding value. */
 export async function maxParticipationsForTenant(tenantId: string): Promise<number> {
   const [row] = await db

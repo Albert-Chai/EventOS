@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Track } from "@/features/analytics/components/track";
 import { FilterBar } from "@/features/visitors/components/filter-bar";
 import { MerchantCard } from "@/features/visitors/components/merchant-card";
 import { SearchBar } from "@/features/visitors/components/search-bar";
@@ -53,8 +54,28 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const showFavourite = settings?.enableFavourites ?? true;
   const isSearching = hasActiveFilters(sp);
 
+  const searchQuery = sp.q?.trim();
+  const activeFilters = (["category", "zone", "halal", "promo"] as const).filter((k) => sp[k]);
+
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
+      <Track name="merchant_list_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
+      {searchQuery ? (
+        <Track
+          name="search_performed"
+          tenantSlug={event.tenantSlug}
+          eventSlug={event.slug}
+          props={{ q: searchQuery, results: results.length }}
+        />
+      ) : null}
+      {activeFilters.length > 0 ? (
+        <Track
+          name="filter_applied"
+          tenantSlug={event.tenantSlug}
+          eventSlug={event.slug}
+          props={{ filters: activeFilters.join(",") }}
+        />
+      ) : null}
       <div className="mb-4 grid gap-1">
         <Link href={baseHref} className="text-muted-foreground text-sm hover:underline">
           ← {event.name}

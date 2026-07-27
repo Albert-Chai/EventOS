@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Track } from "@/features/analytics/components/track";
 import { RecentlyViewed } from "@/features/visitors/components/recently-viewed";
 import { EventPhaseBadge } from "@/features/events/components/event-status-badge";
 import {
@@ -74,6 +75,7 @@ export default async function PublicEventPage({ params }: Params) {
 
   return (
     <article className="mx-auto w-full max-w-2xl">
+      <Track name="event_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
       <header
         className="px-4 py-10 text-white sm:rounded-b-2xl sm:px-8"
         style={{ backgroundColor: primary }}

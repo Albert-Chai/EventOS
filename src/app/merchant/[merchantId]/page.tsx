@@ -45,6 +45,12 @@ export default async function MerchantHomePage({
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{ctx.merchant.name}</h1>
         <p className="text-muted-foreground text-sm">Your events and listings.</p>
+        <Link
+          href={`/merchant/${merchantId}/analytics`}
+          className="text-sm underline underline-offset-4"
+        >
+          View analytics →
+        </Link>
       </div>
 
       <Card>

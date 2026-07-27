@@ -18,8 +18,11 @@ import { and, eq, sql as raw } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 import {
+  analyticsEvents,
   boothAssignments,
   booths,
+  dailyEventMetrics,
+  dailyMerchantMetrics,
   eventBranding,
   eventOperatingHours,
   eventSettings,
@@ -37,6 +40,8 @@ import {
   featuredPlacements,
   invoices,
   plans,
+  qrCodes,
+  qrScanEvents,
   subscriptions,
   tenantMemberRoles,
   tenantMembers,
@@ -807,6 +812,180 @@ async function main() {
             "  + demo visitor (1 favourite, 1 recent view) — cookie eventos_vid=seed-demo-visitor",
           );
         }
+
+        // --- Phase 7: analytics events, QR codes + scans, daily rollups ------
+        // A spread of anonymous engagement over the last 5 days so the organizer
+        // and merchant dashboards render with real numbers. Idempotent: the
+        // event's analytics/rollups are cleared and rebuilt on each run.
+        const anons = [
+          "seed-anon-1",
+          "seed-anon-2",
+          "seed-anon-3",
+          "seed-anon-4",
+          "seed-anon-5",
+          "seed-anon-6",
+          "seed-demo-visitor",
+        ];
+        const devices = ["mobile", "mobile", "mobile", "desktop", "tablet"];
+        const sources = ["direct", "google.com", "instagram.com", "internal", "direct"];
+        const keywords = ["nasi lemak", "satay", "coffee", "halal", "drinks"];
+
+        await db.delete(analyticsEvents).where(eq(analyticsEvents.eventId, streetEats.id));
+
+        type SeedAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+        const evRows: SeedAnalyticsEvent[] = [];
+        let merchantScanCount = 0;
+        for (let d = 0; d < 5; d++) {
+          const dayBase = new Date(now.getTime() - d * 86400000);
+          const at = (h: number) =>
+            new Date(dayBase.getTime() - h * 3600000 - Math.floor(Math.random() * 3600000));
+          const dailyVisitors = 4 + (5 - d); // recent days a touch busier
+          for (let v = 0; v < dailyVisitors; v++) {
+            const anon = anons[(d + v) % anons.length]!;
+            const device = devices[(d + v) % devices.length]!;
+            const source = sources[v % sources.length]!;
+            const common = {
+              tenantId: tenant.id,
+              eventId: streetEats.id,
+              anonymousId: anon,
+              deviceType: device,
+              browser: device === "desktop" ? "Chrome" : "Safari",
+              source,
+            };
+            evRows.push({ ...common, name: "event_viewed", occurredAt: at(1 + v) });
+            if (v % 2 === 0)
+              evRows.push({ ...common, name: "merchant_list_viewed", occurredAt: at(2 + v) });
+            if (v % 3 === 0)
+              evRows.push({
+                ...common,
+                name: "search_performed",
+                props: { q: keywords[(d + v) % keywords.length] },
+                occurredAt: at(2),
+              });
+            if (v % 2 === 1) evRows.push({ ...common, name: "map_opened", occurredAt: at(3) });
+            const withMerchant = {
+              ...common,
+              merchantId: merchant.id,
+              participationId: participation.id,
+            };
+            if (v % 2 === 0)
+              evRows.push({ ...withMerchant, name: "merchant_viewed", occurredAt: at(2) });
+            if (v % 4 === 0)
+              evRows.push({ ...withMerchant, name: "merchant_favourited", occurredAt: at(2) });
+            if (v % 3 === 1)
+              evRows.push({ ...withMerchant, name: "share_clicked", occurredAt: at(4) });
+            if (v % 5 === 0) {
+              evRows.push({
+                ...withMerchant,
+                name: "qr_scanned",
+                props: { targetType: "merchant" },
+                occurredAt: at(1),
+              });
+              merchantScanCount++;
+            }
+          }
+        }
+        await db.insert(analyticsEvents).values(evRows);
+
+        // QR codes (stable seed short codes) — /q/seedevt1, /q/seedmrc1.
+        async function ensureSeedQr(
+          shortCode: string,
+          values: Omit<typeof qrCodes.$inferInsert, "shortCode">,
+        ): Promise<string> {
+          const [existing] = await db
+            .select({ id: qrCodes.id })
+            .from(qrCodes)
+            .where(eq(qrCodes.shortCode, shortCode))
+            .limit(1);
+          if (existing) {
+            await db
+              .update(qrCodes)
+              .set({ scanCount: values.scanCount ?? 0, targetPath: values.targetPath })
+              .where(eq(qrCodes.id, existing.id));
+            return existing.id;
+          }
+          const [created] = await db
+            .insert(qrCodes)
+            .values({ shortCode, ...values })
+            .returning({ id: qrCodes.id });
+          return created!.id;
+        }
+
+        await ensureSeedQr("seedevt1", {
+          tenantId: tenant.id,
+          eventId: streetEats.id,
+          targetType: "event",
+          targetId: streetEats.id,
+          targetPath: `/${tenant.slug}/${streetEats.slug}`,
+          label: "Event homepage",
+          scanCount: 0,
+        });
+        const merchantQrId = await ensureSeedQr("seedmrc1", {
+          tenantId: tenant.id,
+          eventId: streetEats.id,
+          merchantId: merchant.id,
+          participationId: participation.id,
+          targetType: "merchant",
+          targetId: participation.id,
+          targetPath: `/${tenant.slug}/${streetEats.slug}/${merchant.slug}`,
+          label: "Merchant listing",
+          scanCount: merchantScanCount,
+        });
+
+        // Detailed scan log for the merchant code, matching its analytics rows.
+        await db.delete(qrScanEvents).where(eq(qrScanEvents.qrCodeId, merchantQrId));
+        for (let i = 0; i < merchantScanCount; i++) {
+          await db.insert(qrScanEvents).values({
+            tenantId: tenant.id,
+            qrCodeId: merchantQrId,
+            shortCode: "seedmrc1",
+            targetType: "merchant",
+            targetId: participation.id,
+            eventId: streetEats.id,
+            merchantId: merchant.id,
+            anonymousId: anons[i % anons.length]!,
+            deviceType: "mobile",
+            browser: "Safari",
+            country: "MY",
+            scannedAt: new Date(now.getTime() - i * 86400000),
+          });
+        }
+
+        // Daily rollups — the same GROUP BY the cron job runs, across all seeded
+        // days at once, scoped to this event so re-seeding stays idempotent.
+        await db.delete(dailyEventMetrics).where(eq(dailyEventMetrics.eventId, streetEats.id));
+        await db.execute(
+          raw`insert into daily_event_metrics (tenant_id, event_id, date, metric, value)
+              select tenant_id, event_id, occurred_at::date, name, count(*)::int
+              from analytics_events where event_id = ${streetEats.id}
+              group by tenant_id, event_id, occurred_at::date, name`,
+        );
+        await db.execute(
+          raw`insert into daily_event_metrics (tenant_id, event_id, date, metric, value)
+              select tenant_id, event_id, occurred_at::date, 'unique_visitors', count(distinct anonymous_id)::int
+              from analytics_events where event_id = ${streetEats.id}
+              group by tenant_id, event_id, occurred_at::date`,
+        );
+        await db.execute(
+          raw`insert into daily_event_metrics (tenant_id, event_id, date, metric, value)
+              select tenant_id, event_id, occurred_at::date, 'total_events', count(*)::int
+              from analytics_events where event_id = ${streetEats.id}
+              group by tenant_id, event_id, occurred_at::date`,
+        );
+        await db
+          .delete(dailyMerchantMetrics)
+          .where(eq(dailyMerchantMetrics.eventId, streetEats.id));
+        await db.execute(
+          raw`insert into daily_merchant_metrics (tenant_id, event_id, merchant_id, participation_id, date, metric, value)
+              select tenant_id, event_id, merchant_id, participation_id, occurred_at::date, name, count(*)::int
+              from analytics_events
+              where event_id = ${streetEats.id} and participation_id is not null and merchant_id is not null
+              group by tenant_id, event_id, merchant_id, participation_id, occurred_at::date, name`,
+        );
+
+        console.log(
+          `  + ${evRows.length} analytics events over 5 days, 2 QR codes (/q/seedevt1, /q/seedmrc1), ${merchantScanCount} scans, daily rollups`,
+        );
       }
     }
 

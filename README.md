@@ -7,7 +7,7 @@ night markets, expos, and fairs.
 - **Engineering rules:** [CLAUDE.md](CLAUDE.md)
 - **Architecture:** [docs/architecture.md](docs/architecture.md)
 - **Database:** [docs/database.md](docs/database.md)
-- **Current phase:** Phase 6 complete (monetization — plans, usage limits, simulated billing & featured listings) — see [docs/phase-6-plan.md](docs/phase-6-plan.md); next is Phase 7
+- **Current phase:** Phase 7 complete (analytics — event log, organizer & merchant dashboards, trackable QR codes, daily rollups & CSV export) — see [docs/phase-7-plan.md](docs/phase-7-plan.md); next is Phase 8
 
 ---
 
@@ -86,9 +86,11 @@ Sign in at http://localhost:3000 (password `eventos-dev-password` for all):
 
 The seeded workspace ships a published event with an approved merchant, a floor
 plan, booths, a confirmed booth assignment, a demo visitor with a saved merchant,
-and the tenant on the **Growth** plan with that merchant featured. Sign in as
-`organizer.owner@eventos.test` to see `/dashboard/billing` (plan, usage, invoices).
-Public pages:
+the tenant on the **Growth** plan with that merchant featured, and ~5 days of
+seeded analytics (event log + daily rollups) plus two trackable QR codes. Sign in
+as `organizer.owner@eventos.test` to see `/dashboard/billing` (plan, usage,
+invoices) and each event's **Analytics** tab; `merchant.owner@eventos.test` sees
+`/merchant/<id>/analytics`. Public pages:
 
 - `/kl-food-weekend` — the workspace's public event index
 - `/kl-food-weekend/street-eats` — a published event (the draft `404`s)
@@ -97,6 +99,7 @@ Public pages:
 - `/kl-food-weekend/street-eats/merchants` — the searchable merchant directory
 - `/kl-food-weekend/street-eats/favourites` — saved merchants (set the cookie
   `eventos_vid=seed-demo-visitor` to see the seeded favourite)
+- `/q/seedmrc1` — a trackable QR redirect to the merchant listing (logs a scan)
 
 ### 4. Optional — Google sign-in
 
@@ -132,8 +135,9 @@ src/
 │   ├── (platform)/         platform-admin console
 │   ├── (public)/           visitor pages — /{tenant}/{event}[/{merchant}|/map]
 │   ├── merchant/           merchant portal — /merchant/{merchantId}/…
+│   ├── q/                  trackable QR redirect — /q/{shortCode}
 │   ├── auth/callback/      OAuth + email link exchange
-│   └── api/health/         liveness and readiness probes
+│   └── api/                health probes + /api/cron/aggregate-metrics
 ├── components/
 │   ├── ui/                 shadcn primitives
 │   └── forms/              Server-Action-friendly field wrappers
@@ -199,5 +203,5 @@ configured; otherwise it emits a warning saying the tests were skipped.
 | 4     | Booths and maps — zones, floor plans, assignment, interactive map | ✅ Complete |
 | 5     | Visitor experience — directory search, favourites, recently-viewed, PWA | ✅ Complete |
 | 6     | Monetization — plans, usage limits, simulated billing, featured listings | ✅ Complete |
-| 7     | Analytics                                                         | Next        |
-| 8     | Vouchers and campaigns                                            |             |
+| 7     | Analytics — event log, organizer & merchant dashboards, QR tracking, CSV export | ✅ Complete |
+| 8     | Vouchers and campaigns                                            | Next        |

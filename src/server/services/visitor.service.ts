@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 
-import { env } from "@/config/env";
 import { AppError } from "@/lib/api/errors";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { findPublicParticipationByMerchantSlug } from "@/server/db/repositories/participations.repository";
@@ -22,7 +20,9 @@ import {
 } from "@/server/db/repositories/visitors.repository";
 import { getEventSettings } from "@/server/db/repositories/event-config.repository";
 import type { Visitor } from "@/server/db/schema";
+import { captureRequestSignals, recordAnalyticsEvent } from "./analytics.service";
 import { publicFileUrl } from "./media.service";
+import { getOrSetAnonymousId, VISITOR_COOKIE } from "./visitor-identity.service";
 
 /**
  * The visitor experience (spec §8.8). Anonymous, cookie-backed identity — a
@@ -31,9 +31,6 @@ import { publicFileUrl } from "./media.service";
  * (`findPublicEvent`), never a client value: the §6 public-reads seam applied to
  * the visitor's own writes.
  */
-
-const VISITOR_COOKIE = "eventos_vid";
-const ONE_YEAR = 60 * 60 * 24 * 365;
 
 /** The card shape the UI renders, with the logo URL resolved. */
 export type MerchantCardView = Omit<VisitorMerchantCard, "logoBucket" | "logoPath"> & {
@@ -53,24 +50,11 @@ export function toCardView(card: VisitorMerchantCard): MerchantCardView {
  * use. MUST NOT be called from a Server Component (cookies can't be set there).
  */
 async function resolveVisitorForAction(): Promise<Visitor> {
-  const jar = await cookies();
-  const existing = jar.get(VISITOR_COOKIE)?.value;
-  if (existing) {
-    const found = await findVisitorByAnonymousId(existing);
-    if (found) return found;
-    // Cookie present but row missing (e.g. reset db): re-create against the id.
-    return insertVisitor({ anonymousId: existing });
-  }
-
-  const anonymousId = randomUUID();
-  jar.set(VISITOR_COOKIE, anonymousId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: env.NODE_ENV === "production",
-    path: "/",
-    maxAge: ONE_YEAR,
-  });
-  return insertVisitor({ anonymousId });
+  const anonymousId = await getOrSetAnonymousId();
+  const found = await findVisitorByAnonymousId(anonymousId);
+  // Row may be missing even with a cookie (browse-only session, or a reset db):
+  // create it against the existing id.
+  return found ?? insertVisitor({ anonymousId });
 }
 
 /** Read-only visitor lookup for Server Components. Returns null if no cookie/row. */
@@ -116,6 +100,30 @@ export async function setFavourite(
   } else {
     await removeFavourite(visitor.id, listing.participationId);
   }
+
+  // Analytics seam (spec §25): the favourite toggle is captured server-side, so
+  // it can't be forged from the public beacon. Best-effort — never fail the
+  // favourite because tracking hiccuped.
+  try {
+    const signals = await captureRequestSignals();
+    await recordAnalyticsEvent({
+      tenantId: event.tenantId,
+      eventId: event.id,
+      merchantId: listing.merchant.id,
+      participationId: listing.participationId,
+      visitorId: visitor.id,
+      anonymousId: visitor.anonymousId,
+      name: favourite ? "merchant_favourited" : "merchant_unfavourited",
+      deviceType: signals.deviceType,
+      browser: signals.browser,
+      referrer: signals.referrer,
+      source: signals.source,
+    });
+  } catch (error) {
+    // Swallow: favourite already persisted.
+    void error;
+  }
+
   return { favourited: favourite };
 }
 

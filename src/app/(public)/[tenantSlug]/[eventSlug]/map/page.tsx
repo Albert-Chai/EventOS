@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Track } from "@/features/analytics/components/track";
 import { PublicMap } from "@/features/booths/components/public-map";
 import { listBoothsForEventPublic } from "@/server/db/repositories/booths.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
@@ -69,6 +70,7 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
 
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
+      <Track name="map_opened" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
       <div className="mb-4 grid gap-1">
         <Link href={baseHref} className="text-muted-foreground text-sm hover:underline">
           ← {event.name}

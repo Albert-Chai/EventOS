@@ -1,6 +1,6 @@
 # Database
 
-Current as of Phase 6.
+Current as of Phase 7.
 
 ---
 
@@ -100,6 +100,8 @@ pnpm db:migrate      # applies via DIRECT_DATABASE_URL
 | `drizzle/0011_visitors_constraints.sql`    | **Hand-written** — `visitors.user_id → auth.users` (SET NULL) FK, triggers on visitors + visitor_recent_views, grants                 |
 | `drizzle/0012_awesome_blur.sql`            | Generated — plans, subscriptions, invoices, usage_records, featured_placements (+ FKs to tenants/events/participations/merchants/plans) |
 | `drizzle/0013_monetization_constraints.sql`| **Hand-written** — `featured_placements.created_by → auth.users` (SET NULL) FK, the "one open placement" partial unique index, triggers on plans/subscriptions/invoices/featured_placements, grants |
+| `drizzle/0014_opposite_bushwacker.sql`     | Generated — analytics_events, daily_event_metrics, daily_merchant_metrics, qr_codes, qr_scan_events (+ FKs to tenants/events/merchants/participations/items/booths/zones/visitors) |
+| `drizzle/0015_analytics_constraints.sql`   | **Hand-written** — `qr_codes.created_by → auth.users` (SET NULL) FK, the "one active code per target" partial unique index, triggers on daily_event_metrics/daily_merchant_metrics/qr_codes (not the append-only logs), grants |
 
 `_journal.json` lists all fourteen; hand-written files must be added to it manually.
 
@@ -262,6 +264,34 @@ Monetization: `plans`, `subscriptions`, `invoices`, `usage_records`,
 - Cross-schema `auth.users` FK (`featured_placements.created_by`) is hand-written
   in 0013; every table repeats the `REVOKE ALL … FROM anon, authenticated`.
 
+### Phase 7 additions
+
+Analytics: `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`,
+`qr_codes`, `qr_scan_events`. Notes:
+
+- **`analytics_events` is the raw log — append-only** (created_at only, no
+  updated_at/trigger, like `usage_records`). Every dashboard reads **live** from
+  it, so the numbers match the log by construction. `name` is the §25 taxonomy
+  (`server/analytics/taxonomy.ts`); the entity-id columns
+  (`merchant_id`/`participation_id`/`item_id`/`booth_id`/`zone_id`) mirror the §25
+  property list so later phases populate them without a migration. `anonymous_id`
+  (the `eventos_vid` cookie) is the unique-visitor key — **no `visitors` row is
+  created to track**. `tenant_id`/`event_id` are always server-derived (URL slug,
+  server seam, or a QR code's own row), never a client value.
+- **`daily_event_metrics` / `daily_merchant_metrics` are derived rollups**
+  (mutable ⇒ `updated_at` trigger), a **tall** `(…, date, metric, value)` shape.
+  `metric` is a raw event name or a derived key (`unique_visitors`,
+  `total_events`). Rebuilt idempotently by `runDailyAggregation` (delete-then-
+  `INSERT … SELECT … GROUP BY`) behind the `CRON_SECRET`-guarded
+  `/api/cron/aggregate-metrics`.
+- **`qr_codes` is mutable** (retarget/disable ⇒ `updated_at` trigger): `short_code`
+  is globally unique, `target_path` is the retargetable destination, and a partial
+  unique index keeps **one active code per (target_type, target_id)**. **`qr_scan_events`
+  is append-only** — one row per `/q/{code}` scan, snapshotting the code fields;
+  only an approximate `country` is stored (never precise geo, §8.10).
+- Cross-schema `auth.users` FK (`qr_codes.created_by`) is hand-written in 0015;
+  every table repeats the `REVOKE ALL … FROM anon, authenticated`.
+
 Naming: `snake_case` columns, plural table names, `*_id` for foreign keys.
 
 Use the generic entity names from spec §8.5 — `listing_items`, not `products`.
@@ -291,11 +321,11 @@ Phase 5 adds a demo `visitors` row (`anonymous_id = seed-demo-visitor`) with one
 favourite and one recent view; set the cookie `eventos_vid=seed-demo-visitor` in
 the browser to browse as that visitor. Phase 6 seeds the four `plans`, puts the
 demo tenant on **Growth** with one paid `invoice`, and features the seeded
-merchant (a `featured_placements` row + `featured_rank`). Idempotent. Refuses to
-run when `NODE_ENV=production` or when the connection string looks like
-production.
-
-Analytics rows in spec §38 are added as their phases land.
+merchant (a `featured_placements` row + `featured_rank`). Phase 7 seeds ~5 days of
+`analytics_events` for the published event (with matching `daily_*_metrics`
+rollups), two `qr_codes` (`/q/seedevt1`, `/q/seedmrc1`), and the merchant code's
+scan log. Idempotent. Refuses to run when `NODE_ENV=production` or when the
+connection string looks like production.
 
 ---
 
@@ -309,7 +339,7 @@ Analytics rows in spec §38 are added as their phases land.
 | 4 ✅  | `files`, `zones`, `maps`, `map_floors`, `booths`, `booth_assignments`                                                                                               |
 | 5 ✅  | `visitors`, `visitor_favourites`, `visitor_recent_views`                                                                                                            |
 | 6 ✅  | `plans`, `subscriptions`, `invoices`, `usage_records`, `featured_placements` (`subscription_items`/`payments` deferred)                                              |
-| 7     | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
+| 7 ✅  | `analytics_events`, `daily_event_metrics`, `daily_merchant_metrics`, `qr_codes`, `qr_scan_events`                                                                   |
 | 8     | `vouchers`, `voucher_codes`, `voucher_claims`, `voucher_redemptions`, `campaigns`                                                                                   |
 
 Full target list: spec §12.

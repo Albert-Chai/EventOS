@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { MediaImage } from "@/components/media/media-image";
+import { Track } from "@/features/analytics/components/track";
 import { formatPrice } from "@/features/merchants/format";
 import { FavouriteButton } from "@/features/visitors/components/favourite-button";
 import { RecordView } from "@/features/visitors/components/record-view";
@@ -78,6 +79,12 @@ export default async function PublicMerchantPage({ params }: Params) {
         eventSlug={event.slug}
         merchantSlug={merchantSlug}
       />
+      <Track
+        name="merchant_viewed"
+        tenantSlug={event.tenantSlug}
+        eventSlug={event.slug}
+        merchantSlug={merchantSlug}
+      />
       <Link
         href={`/${event.tenantSlug}/${event.slug}`}
         className="text-muted-foreground text-sm hover:underline"
@@ -123,7 +130,11 @@ export default async function PublicMerchantPage({ params }: Params) {
             variant="button"
           />
         ) : null}
-        <ShareButton title={displayName} text={listing.merchant.description ?? undefined} />
+        <ShareButton
+          title={displayName}
+          text={listing.merchant.description ?? undefined}
+          track={{ tenantSlug: event.tenantSlug, eventSlug: event.slug, merchantSlug }}
+        />
       </div>
 
       {boothNumber ? (

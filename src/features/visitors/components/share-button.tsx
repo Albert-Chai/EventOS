@@ -4,20 +4,24 @@ import { Share2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { trackEventAction } from "@/features/analytics/actions";
 import { cn } from "@/lib/utils";
 
 /**
  * Share the current page (spec §8.8). Uses the Web Share sheet on mobile and
- * falls back to copying the link to the clipboard everywhere else.
+ * falls back to copying the link to the clipboard everywhere else. When `track`
+ * is given, a share fires a `share_clicked` analytics beacon (spec §25).
  */
 export function ShareButton({
   title,
   text,
   className,
+  track,
 }: {
   title: string;
   text?: string;
   className?: string;
+  track?: { tenantSlug: string; eventSlug: string; merchantSlug?: string };
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -28,6 +32,9 @@ export function ShareButton({
 
   async function share() {
     setBusy(true);
+    if (track) {
+      void trackEventAction({ name: "share_clicked", ...track });
+    }
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ title, text, url: window.location.href });

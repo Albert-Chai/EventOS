@@ -58,6 +58,8 @@ export const AUDIT_ACTIONS = {
   BILLING_PLAN_CHANGED: "billing.plan_changed",
   MERCHANT_FEATURED: "merchant.featured",
   MERCHANT_UNFEATURED: "merchant.unfeatured",
+  QR_CODE_CREATED: "qr.code_created",
+  QR_CODE_UPDATED: "qr.code_updated",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

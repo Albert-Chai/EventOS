@@ -4,7 +4,7 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 6 complete** (monetization — plans, subscriptions, usage limits, simulated billing & featured listings). Next: Phase 7 (analytics).
+Current state: **Phase 7 complete** (analytics — a raw event log, organizer & merchant dashboards, trackable QR codes, daily rollups & CSV export). Next: Phase 8 (vouchers & campaigns).
 
 ---
 
@@ -173,6 +173,27 @@ Plan definitions (limits + entitlements) are **code** (`src/server/billing/plans
 mirrored into the seeded `plans` catalog. Billing is **simulated** (no Stripe):
 `changePlan` records a subscription + a paid invoice + an audit line. This is
 distinct from application rate limiting.
+
+**Analytics (Phase 7):** the raw log `analytics_events` is **append-only** (like
+`usage_records` / `qr_scan_events` — no `updated_at`/trigger) and, like every
+other table, is written **only through the repository layer**. Its `tenant_id` +
+`event_id` are always **server-derived** — from the public URL slug
+(`recordTrackedEvent` → `findPublicEvent`), from a resolved server seam
+(`setFavourite`), or from a QR code's **own row** (`/q` → `resolveScan`) — never a
+client value (the §1/§6 public-write seam). The public browser beacon
+(`trackEvent` action → `<Track>`) may emit **only** the `CLIENT_TRACKABLE` subset
+of the §25 taxonomy (`src/server/analytics/taxonomy.ts`); favourite + QR events
+originate server-side, so the beacon can't forge them. The anonymous-visitor
+cookie identity is shared with Phase 5 via `visitor-identity.service.ts`
+(`getOrSetAnonymousId` mints the cookie **without** a `visitors` DB row — browsing
+still writes nothing). Dashboards read **live from the raw log** (so numbers match
+it by construction); `daily_event_metrics`/`daily_merchant_metrics` are a derived
+rollup rebuilt idempotently by `runDailyAggregation` behind the
+`CRON_SECRET`-guarded `/api/cron/aggregate-metrics` (scheduling deferred like the
+status scheduler). QR generation is an audited organizer mutation
+(`qr.code_created`); the high-volume tracking writes are **not** audited (§23 is
+for actor state-changes, not visitor telemetry). Only an approximate `country`
+(from `x-vercel-ip-country`) is ever stored — never precise geo (§8.10).
 
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime.

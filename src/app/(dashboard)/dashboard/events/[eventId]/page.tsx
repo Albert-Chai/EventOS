@@ -49,6 +49,7 @@ export default async function EventOverviewPage({
   const canCreate = ctx.permissions.has("event.create");
   const canDelete = ctx.permissions.has("event.delete");
   const canViewMerchants = ctx.permissions.has("merchant.view");
+  const canViewAnalytics = ctx.permissions.has("analytics.view");
   const canManageBooths = ctx.permissions.has("booth.manage");
   const canManageMap = ctx.permissions.has("map.manage");
   const mapUploaded = floors.some((f) => f.imageFileId);
@@ -120,6 +121,18 @@ export default async function EventOverviewPage({
             })}
           >
             Manage merchants
+          </Link>
+        ) : null}
+        {canViewAnalytics ? (
+          <Link
+            href={`/dashboard/events/${event.id}/analytics`}
+            className={buttonVariants({
+              variant: "outline",
+              size: "sm",
+              className: "justify-self-start",
+            })}
+          >
+            View analytics
           </Link>
         ) : null}
       </div>

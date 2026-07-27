@@ -1,6 +1,6 @@
 # Architecture
 
-Current as of Phase 6. Update this file whenever the shape changes
+Current as of Phase 7. Update this file whenever the shape changes
 (spec §33.2 rule 7).
 
 ---
@@ -353,3 +353,42 @@ Plans, enforced usage limits, a simulated upgrade flow, and featured listings.
   one-open-placement constraint, all tenant-isolated; `billing-plans.test.ts`
   unit-covers the limit math; `tests/e2e/billing.spec.ts` walks the simulated
   upgrade and the public featured badge.
+
+## 14. Phase 7 — analytics (shipped)
+
+A raw event log, organizer & merchant dashboards, trackable QR codes, daily
+rollups, and CSV export.
+
+- **Capture is a client beacon + server seams.** A `<Track>` client component
+  fires the public `trackEvent` action once on mount (event/merchant/list/search/
+  filter/map/share views); the server records favourite events inside
+  `setFavourite` and QR scans inside the `/q` redirect. The beacon may emit **only**
+  the `CLIENT_TRACKABLE` subset of the §25 taxonomy — favourite + QR events
+  originate server-side, so they can't be forged. `tenant_id`/`event_id` are always
+  server-derived (URL slug, resolved seam, or the QR code's own row), never the
+  client. The anonymous-id cookie is shared with Phase 5 via
+  `visitor-identity.service` and mints **no** `visitors` DB row on a browse.
+- **Dashboards read live from the raw log** (`analytics.service` →
+  `analytics_events` grouped counts), so the numbers match the log by construction
+  — the §34 "metrics match raw event logs" bar. Organizer dashboard per event
+  (`/dashboard/events/[id]/analytics`, `analytics.view`); merchant dashboard
+  (`/merchant/[id]/analytics`, merchant membership). Both export CSV
+  (`analytics.export` / membership) via a hand-rolled `lib/csv` serializer.
+- **Rollups are a derived, idempotent job.** `runDailyAggregation` rebuilds a UTC
+  date's `daily_event_metrics` / `daily_merchant_metrics` by delete-then-
+  `INSERT … SELECT … GROUP BY`, exposed at the `CRON_SECRET`-guarded
+  `/api/cron/aggregate-metrics` (503 until the secret is set; `vercel.json` wires a
+  nightly cron, inert until deployed — scheduling deferred like the status
+  scheduler).
+- **QR codes** (`qr.service`, `qrcode` dep) generate idempotently per target (one
+  active code per target), render to a self-contained PNG data URI, and resolve
+  through `/q/{shortCode}` — which logs a `qr_scan_events` row + an
+  `analytics_events` `qr_scanned` mirror + a scan-count bump, then 302s to the
+  retargetable destination. Generation is audited (`qr.code_created`); the
+  high-volume tracking writes are not (§23 audits actor state-changes).
+- **Isolation & correctness proven** — `tests/integration/analytics.test.ts`
+  covers live-from-raw aggregation, tenant isolation, the rollup reproducing the
+  raw counts, and the QR scan pipeline; `tests/unit/analytics.test.ts` covers UA/
+  source parsing, CSV escaping, taxonomy guards, and day-key math;
+  `tests/e2e/analytics.spec.ts` walks the `/q` redirect and the organizer
+  dashboard.

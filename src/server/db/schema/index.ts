@@ -13,6 +13,8 @@
  * views. Not tenant-scoped by membership; favourites/recent carry tenant + event.
  * Phase 6: monetization — plans (the platform catalog, not tenant-scoped),
  * subscriptions, invoices, usage_records (append-only ledger), featured_placements.
+ * Phase 7: analytics — analytics_events (append-only raw log), daily_event_metrics
+ * + daily_merchant_metrics (rollups), qr_codes + qr_scan_events (trackable QR).
  */
 export * from "./profiles";
 export * from "./tenants";
@@ -42,3 +44,8 @@ export * from "./subscriptions";
 export * from "./invoices";
 export * from "./usage-records";
 export * from "./featured-placements";
+export * from "./analytics-events";
+export * from "./daily-event-metrics";
+export * from "./daily-merchant-metrics";
+export * from "./qr-codes";
+export * from "./qr-scan-events";
