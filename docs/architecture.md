@@ -1,7 +1,7 @@
 # Architecture
 
-Current as of Phase 8 (all §34 build phases complete). Update this file whenever the shape changes
-(spec §33.2 rule 7).
+Current as of Phase 8 (all §34 build phases complete) plus the status-scheduler
+follow-up (§16). Update this file whenever the shape changes (spec §33.2 rule 7).
 
 ---
 
@@ -35,8 +35,10 @@ Current as of Phase 8 (all §34 build phases complete). Update this file wheneve
 └───────────────────┘  └───────────────────┘  └───────────────────┘
 ```
 
-Deferred, with env vars reserved: Redis (rate limits, queue), a background job
-runner, a payment provider, Sentry, PostHog.
+Date-driven background work runs as `CRON_SECRET`-guarded cron sweeps (§16); a
+durable queue/worker is deferred until a job needs retries or fan-out. Still
+deferred, with env vars reserved: Redis (rate limits, queue), a payment provider,
+a real email/push adapter, Sentry, PostHog.
 
 ---
 
@@ -378,8 +380,7 @@ rollups, and CSV export.
   date's `daily_event_metrics` / `daily_merchant_metrics` by delete-then-
   `INSERT … SELECT … GROUP BY`, exposed at the `CRON_SECRET`-guarded
   `/api/cron/aggregate-metrics` (503 until the secret is set; `vercel.json` wires a
-  nightly cron, inert until deployed — scheduling deferred like the status
-  scheduler).
+  nightly cron, inert until deployed).
 - **QR codes** (`qr.service`, `qrcode` dep) generate idempotently per target (one
   active code per target), render to a self-contained PNG data URI, and resolve
   through `/q/{shortCode}` — which logs a `qr_scan_events` row + an
@@ -440,3 +441,34 @@ last of the §34 build phases.
   `tests/unit/vouchers.test.ts` covers both status machines, claimability,
   discount labels and the report maths; `tests/e2e/vouchers.spec.ts` walks
   claim → redeem → refused second redeem.
+
+## 16. Background jobs — the status scheduler (shipped)
+
+Post-Phase-8 follow-up that closes the long-deferred job-runner gap (full design
+in `docs/background-jobs.md`). No schema change, no migration.
+
+- **What it does.** A `CRON_SECRET`-guarded `/api/cron/run-scheduler` advances the
+  statuses that are date-driven but had nothing moving them: events
+  `published → live → ended` and vouchers `scheduled → active → expired`. It runs
+  the analytics rollup's twin cadence in `vercel.json` (every 15 min vs. the
+  nightly aggregation), both sharing `requireCronAuth` (`src/lib/api/cron-auth.ts`).
+- **The one sanctioned system-wide write.** `scheduler.repository.ts` sweeps across
+  *all* tenants — legitimate because the clock is the only input and each affected
+  row's `tenant_id` is read from the row, never a client. Each sweep selects the
+  due rows `FOR UPDATE` (overlapping runs serialise), updates them in the same
+  transaction, and is idempotent (the `WHERE` re-filters on the source status). An
+  optional `scope.tenantId` narrows a run — production omits it; tests pass a fresh
+  tenant so a sweep is hermetic and can't touch seeded rows.
+- **Rules once, mirrored in SQL.** The transition logic is pure and unit-tested
+  (`dueEventStatus`/`dueVoucherStatus`), the SQL mirrors it — the same split as
+  `eventPhase ↔ phaseExpr`. End is checked before start, so a row already past its
+  end settles terminal rather than briefly advancing.
+- **System-audited.** Every transition is a state change, so it audits (§23) — but
+  a cron has no user, so `recordSystemAudits` writes with `actor_user_id = null`
+  (the trail column is nullable), `via_impersonation = false`, and
+  `after = { status, by: "scheduler" }`, carrying the row's own tenant. Best-effort,
+  like `recordAudit`.
+- **Proven** — `tests/unit/scheduler.test.ts` pins every source status and both
+  sides of the start/end boundary; `tests/integration/scheduler.test.ts` (live DB)
+  proves the right rows move, controls don't, transitions are audited with a null
+  actor, and a second run is a no-op.

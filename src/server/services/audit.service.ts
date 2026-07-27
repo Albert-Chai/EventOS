@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 
-import { insertAuditLog } from "@/server/db/repositories/audit.repository";
+import { insertAuditLog, insertAuditLogs } from "@/server/db/repositories/audit.repository";
 import type { AuthenticatedContext } from "@/server/context";
+import { logger } from "@/server/telemetry/logger";
 
 /**
  * Audit actions (spec §23). A closed catalog so the trail is queryable and
@@ -116,5 +117,45 @@ export async function recordAudit(ctx: AuthenticatedContext, input: AuditInput):
     });
   } catch (error) {
     ctx.log.error("audit.write_failed", { action: input.action, error });
+  }
+}
+
+export type SystemAuditEntry = {
+  action: AuditAction;
+  /** The affected row's own tenant, read from the row — never a client value. */
+  tenantId: string | null;
+  resourceType?: string;
+  resourceId?: string;
+  before?: unknown;
+  after?: unknown;
+};
+
+/**
+ * Writes audit lines for a **system** action — a scheduled job with no
+ * authenticated user (spec §23 still applies to state changes it makes). The
+ * actor is `null` (the trail's `actor_user_id` is nullable, as for platform-level
+ * lines) and there are no request headers. Best-effort and batched: a failed
+ * audit insert is logged, never surfaced, and never rolls back the transition
+ * that already committed — the same trade-off as `recordAudit`.
+ */
+export async function recordSystemAudits(entries: SystemAuditEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  try {
+    await insertAuditLogs(
+      entries.map((e) => ({
+        actorUserId: null,
+        tenantId: e.tenantId,
+        action: e.action,
+        resourceType: e.resourceType ?? null,
+        resourceId: e.resourceId ?? null,
+        beforeJson: e.before ?? null,
+        afterJson: e.after ?? null,
+        viaImpersonation: false,
+        ipAddress: null,
+        userAgent: "system/scheduler",
+      })),
+    );
+  } catch (error) {
+    logger.error("audit.system_write_failed", { count: entries.length, error });
   }
 }

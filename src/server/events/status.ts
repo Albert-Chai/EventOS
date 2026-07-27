@@ -5,11 +5,11 @@ import type { Permission } from "@/server/authz/permissions";
  * so the transition rules can be unit-tested without a database (CLAUDE §7.5:
  * status transitions are critical business logic and must be tested).
  *
- * The persisted `status` is authoritative. `live`/`ended` are reached by an
- * explicit action for now; a scheduler to advance them by date is deferred with
- * the rest of the job-runner work (see docs/phase-2-plan.md §7). The public site
- * still shows the right label because it derives a *phase* from the dates
- * (`eventPhase`), independent of exactly when the status was flipped.
+ * The persisted `status` is authoritative. `live`/`ended` are reached either by
+ * an explicit organizer action or by the status scheduler advancing them by date
+ * (`dueEventStatus` below; see docs/background-jobs.md). The public site also
+ * derives a *phase* from the dates (`eventPhase`) independent of the stored
+ * status, so the label is right even between scheduler runs.
  */
 
 export const EVENT_STATUSES = [
@@ -113,3 +113,27 @@ export const EVENT_PHASE_LABELS: Record<EventPhase, string> = {
   live: "Live now",
   ended: "Ended",
 };
+
+/**
+ * The status the scheduler should advance an event to given the clock, or `null`
+ * to leave it alone (spec §34 job runner; see `docs/background-jobs.md`). Pure so
+ * it can be unit-tested without a database; the SQL sweep in
+ * `scheduler.repository.ts` mirrors it exactly (like `eventPhase` ↔ `phaseExpr`).
+ *
+ * End is checked before start so a `published` event already past its end date
+ * ends rather than briefly going live. Every returned target is a legal move in
+ * the transition machine above. `null` dates mean open-ended on that side.
+ */
+export function dueEventStatus(
+  event: { status: EventStatus; startAt: Date | null; endAt: Date | null },
+  now: Date,
+): "live" | "ended" | null {
+  const { status, startAt, endAt } = event;
+  if ((status === "published" || status === "live") && endAt && now >= endAt) {
+    return "ended";
+  }
+  if (status === "published" && startAt && now >= startAt) {
+    return "live";
+  }
+  return null;
+}

@@ -142,7 +142,7 @@ src/
 │   ├── merchant/           merchant portal — /merchant/{merchantId}/…
 │   ├── q/                  trackable QR redirect — /q/{shortCode}
 │   ├── auth/callback/      OAuth + email link exchange
-│   └── api/                health probes + /api/cron/aggregate-metrics
+│   └── api/                health probes + /api/cron/{aggregate-metrics,run-scheduler}
 ├── components/
 │   ├── ui/                 shadcn primitives
 │   └── forms/              Server-Action-friendly field wrappers

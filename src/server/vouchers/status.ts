@@ -144,6 +144,33 @@ export function remainingQuantity(voucher: ClaimableVoucher): number | null {
   return Math.max(voucher.totalQuantity - voucher.claimedCount, 0);
 }
 
+/**
+ * The status the scheduler should advance a voucher to given the clock, or `null`
+ * to leave it alone (spec §34 job runner; see `docs/background-jobs.md`). Pure and
+ * unit-tested; the SQL sweep in `scheduler.repository.ts` mirrors it. Uses the same
+ * `>= endsAt` boundary as `claimableReason` — at the end instant the window is over.
+ *
+ * End is checked before start so a `scheduled` voucher already past its end date
+ * expires rather than briefly activating. `null` dates mean open-ended on that side.
+ */
+export function dueVoucherStatus(
+  voucher: { status: VoucherStatus; startsAt: Date | null; endsAt: Date | null },
+  now: Date,
+): "active" | "expired" | null {
+  const { status, startsAt, endsAt } = voucher;
+  if (
+    (status === "scheduled" || status === "active" || status === "paused") &&
+    endsAt &&
+    now >= endsAt
+  ) {
+    return "expired";
+  }
+  if (status === "scheduled" && startsAt && now >= startsAt) {
+    return "active";
+  }
+  return null;
+}
+
 // --- Presentation maths -----------------------------------------------------
 
 export type DiscountShape = {

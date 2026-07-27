@@ -12,6 +12,12 @@ export async function insertAuditLog(entry: NewAuditLog): Promise<void> {
   await db.insert(auditLogs).values(entry);
 }
 
+/** Batch insert — used by system jobs that transition many rows in one sweep. */
+export async function insertAuditLogs(entries: NewAuditLog[]): Promise<void> {
+  if (entries.length === 0) return;
+  await db.insert(auditLogs).values(entries);
+}
+
 export type AuditLogRow = AuditLog & { actorEmail: string | null };
 
 /**

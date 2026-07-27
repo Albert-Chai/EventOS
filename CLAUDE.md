@@ -189,8 +189,8 @@ cookie identity is shared with Phase 5 via `visitor-identity.service.ts`
 still writes nothing). Dashboards read **live from the raw log** (so numbers match
 it by construction); `daily_event_metrics`/`daily_merchant_metrics` are a derived
 rollup rebuilt idempotently by `runDailyAggregation` behind the
-`CRON_SECRET`-guarded `/api/cron/aggregate-metrics` (scheduling deferred like the
-status scheduler). QR generation is an audited organizer mutation
+`CRON_SECRET`-guarded `/api/cron/aggregate-metrics`. QR generation is an audited
+organizer mutation
 (`qr.code_created`); the high-volume tracking writes are **not** audited (§23 is
 for actor state-changes, not visitor telemetry). Only an approximate `country`
 (from `x-vercel-ip-country`) is ever stored — never precise geo (§8.10).
@@ -219,6 +219,24 @@ Do not build campaigns on it. Real sending is one adapter implementing
 `NotificationProvider` plus a key (`EMAIL_PROVIDER`/`RESEND_API_KEY` are already
 reserved). Any UI showing send counts must keep saying they're simulated until
 an adapter lands.
+
+**Status scheduler (background jobs).** The date-driven job runner is implemented
+(`server/services/scheduler.service.ts`, `docs/background-jobs.md`): a
+`CRON_SECRET`-guarded `/api/cron/run-scheduler` advances event
+(`published→live→ended`) and voucher (`scheduled→active→expired`) statuses across
+all tenants. It is the platform's only sanctioned **system-wide, cross-tenant**
+write — legitimate because the clock is the only input and each row's `tenant_id`
+is read from the row, never a client (`scheduler.repository.ts` documents this).
+The sweeps are idempotent (`WHERE` re-filters on the source status) and each
+transition is **system-audited with a null actor** (`recordSystemAudits`; the
+trail's `actor_user_id` is nullable). The transition rules live once as pure,
+unit-tested functions (`dueEventStatus`/`dueVoucherStatus`) that the SQL mirrors —
+the same `pure ↔ SQL` split as `eventPhase ↔ phaseExpr`. Both crons share
+`requireCronAuth` (`src/lib/api/cron-auth.ts`). Scheduling in `vercel.json` is
+inert until a `CRON_SECRET` is set + deployed; the endpoint is equally callable by
+any external scheduler holding the token. A durable job/queue table is still not
+warranted — add one only when a job needs retries or fan-out a cron sweep can't
+express.
 
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime.
