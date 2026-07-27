@@ -61,10 +61,10 @@ export function FavouriteButton({
         aria-pressed={favourited}
         disabled={pending}
         className={cn(
-          "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60",
+          "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-60",
           favourited
-            ? "border-rose-200 bg-rose-50 text-rose-600"
-            : "hover:bg-muted/50",
+            ? "border-[#ff6b9d]/45 bg-[#ff6b9d]/15 text-[#ff9dbf]"
+            : "border-white/16 bg-white/8 text-white hover:bg-white/14",
           className,
         )}
       >
@@ -83,10 +83,10 @@ export function FavouriteButton({
       title={label}
       disabled={pending}
       className={cn(
-        "inline-flex size-8 items-center justify-center rounded-full border bg-white/90 backdrop-blur transition-colors disabled:opacity-60",
+        "inline-flex size-8 items-center justify-center rounded-full border backdrop-blur transition-colors disabled:opacity-60",
         favourited
-          ? "border-rose-200 text-rose-600"
-          : "text-muted-foreground hover:text-foreground",
+          ? "border-[#ff6b9d]/50 bg-black/50 text-[#ff9dbf]"
+          : "border-white/20 bg-black/40 text-white/75 hover:text-white",
         className,
       )}
     >

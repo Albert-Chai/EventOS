@@ -61,7 +61,7 @@ export function ShareButton({
       onClick={share}
       disabled={busy}
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50 disabled:opacity-60",
+        "inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/8 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/14 disabled:opacity-60",
         className,
       )}
     >

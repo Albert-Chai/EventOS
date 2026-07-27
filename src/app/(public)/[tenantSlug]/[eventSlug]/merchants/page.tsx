@@ -7,7 +7,11 @@ import { FilterBar } from "@/features/visitors/components/filter-bar";
 import { MerchantCard } from "@/features/visitors/components/merchant-card";
 import { SearchBar } from "@/features/visitors/components/search-bar";
 import { hasActiveFilters, parseDirectoryParams } from "@/features/visitors/filters";
-import { getEventSettings } from "@/server/db/repositories/event-config.repository";
+import { brandStyle } from "@/features/visitors/neon";
+import {
+  getEventBranding,
+  getEventSettings,
+} from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { getDirectoryFacets, searchDirectory } from "@/server/services/directory.service";
 import { listFeaturedParticipationIds } from "@/server/services/featured.service";
@@ -42,15 +46,17 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [results, facets, settings, favourites, featured] = await Promise.all([
+  const [results, facets, settings, favourites, featured, branding] = await Promise.all([
     searchDirectory(event.id, parseDirectoryParams(sp)),
     getDirectoryFacets(event.id),
     getEventSettings(event.tenantId, event.id),
     listFavouriteParticipationIdsForRead(event.id),
     listFeaturedParticipationIds(event.id),
+    getEventBranding(event.tenantId, event.id),
   ]);
 
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
+  const primary = branding?.primaryColor ?? "#ff2d78";
   const showFavourite = settings?.enableFavourites ?? true;
   const isSearching = hasActiveFilters(sp);
 
@@ -58,7 +64,7 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const activeFilters = (["category", "zone", "halal", "promo"] as const).filter((k) => sp[k]);
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
+    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
       <Track name="merchant_list_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
       {searchQuery ? (
         <Track
@@ -77,10 +83,10 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         />
       ) : null}
       <div className="mb-4 grid gap-1">
-        <Link href={baseHref} className="text-muted-foreground text-sm hover:underline">
+        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
           ← {event.name}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Merchants</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white">Stalls</h1>
       </div>
 
       <div className="grid gap-3">
@@ -88,15 +94,16 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         <FilterBar facets={facets} />
       </div>
 
-      <p className="text-muted-foreground mt-4 text-sm" aria-live="polite">
-        {results.length} {results.length === 1 ? "merchant" : "merchants"}
+      <p className="mt-4 text-sm text-white/55" aria-live="polite">
+        <span className="font-bold text-[var(--neon-lime)]">{results.length}</span>{" "}
+        {results.length === 1 ? "stall" : "stalls"}
         {isSearching ? " match your search" : ""}
       </p>
 
       {results.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm font-medium">No merchants found</p>
-          <p className="text-muted-foreground mt-1 text-sm">
+        <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-8 text-center">
+          <p className="text-sm font-semibold text-white">No stalls found</p>
+          <p className="mt-1 text-sm text-white/55">
             {isSearching
               ? "Try a different search or clear the filters."
               : "Listings will appear here as they’re approved."}

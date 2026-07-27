@@ -31,13 +31,11 @@ export default async function FavouritesPage({ params }: Params) {
 
   if (settings && !settings.enableFavourites) {
     return (
-      <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
-        <Link href={baseHref} className="text-muted-foreground text-sm hover:underline">
+      <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8">
+        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
           ← {event.name}
         </Link>
-        <p className="text-muted-foreground mt-6 text-sm">
-          Favourites aren’t enabled for this event.
-        </p>
+        <p className="mt-6 text-sm text-white/55">Favourites aren’t enabled for this event.</p>
       </article>
     );
   }
@@ -45,26 +43,26 @@ export default async function FavouritesPage({ params }: Params) {
   const cards = await listFavouritesForRead(event.id);
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8">
+    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8">
       <div className="mb-4 grid gap-1">
-        <Link href={baseHref} className="text-muted-foreground text-sm hover:underline">
+        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
           ← {event.name}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Your favourites</h1>
-        <p className="text-muted-foreground text-sm">Saved on this device.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white">Your favourites</h1>
+        <p className="text-sm text-white/55">Saved on this device.</p>
       </div>
 
       {cards.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm font-medium">Nothing saved yet</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Tap the heart on any merchant to save it here for quick access.
+        <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-8 text-center">
+          <p className="text-sm font-semibold text-white">Nothing saved yet</p>
+          <p className="mt-1 text-sm text-white/55">
+            Tap the heart on any stall to save it here for quick access.
           </p>
           <Link
             href={`${baseHref}/merchants`}
-            className="mt-4 inline-block text-sm underline underline-offset-4"
+            className="mt-4 inline-block text-sm font-semibold text-[var(--neon-lime)] underline-offset-4 hover:underline"
           >
-            Browse merchants →
+            Browse stalls →
           </Link>
         </div>
       ) : (

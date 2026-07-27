@@ -11,7 +11,8 @@ import type { DirectoryFacets } from "@/server/services/directory.service";
  * shareable and survives a reload — the server search reads it back.
  */
 
-const SELECT_CLASS = "border-input h-9 rounded-lg border bg-transparent px-2 text-sm";
+const SELECT_CLASS =
+  "h-9 rounded-full border border-white/16 bg-white/8 px-3 text-sm text-white outline-none focus:border-[var(--brand)] [&>option]:bg-[#26123f] [&>option]:text-white";
 
 export function FilterBar({ facets }: { facets: DirectoryFacets }) {
   const router = useRouter();
@@ -38,8 +39,10 @@ export function FilterBar({ facets }: { facets: DirectoryFacets }) {
 
   const chip = (active: boolean) =>
     cn(
-      "rounded-full border px-3 py-1 text-sm transition-colors",
-      active ? "border-foreground bg-foreground text-background" : "hover:bg-muted/50",
+      "rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors",
+      active
+        ? "border-[var(--neon-lime)] bg-[var(--neon-lime)] text-[#14061f]"
+        : "border-white/16 bg-white/8 text-white hover:bg-white/14",
     );
 
   return (

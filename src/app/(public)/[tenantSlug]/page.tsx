@@ -27,12 +27,12 @@ export default async function TenantPublicIndexPage({ params }: Params) {
   const events = await listPublicEventsForTenant(tenantSlug);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-8">
-      <h1 className="text-2xl font-semibold tracking-tight">{tenant.name}</h1>
-      <p className="text-muted-foreground mt-1 text-sm">Upcoming and recent events.</p>
+    <div className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8">
+      <h1 className="text-3xl font-extrabold tracking-tight text-white">{tenant.name}</h1>
+      <p className="mt-1 text-sm text-white/55">Upcoming and recent events.</p>
 
       {events.length === 0 ? (
-        <p className="text-muted-foreground mt-8 rounded-lg border border-dashed p-6 text-center text-sm">
+        <p className="mt-8 rounded-2xl border border-dashed border-white/20 p-6 text-center text-sm text-white/55">
           No public events yet — check back soon.
         </p>
       ) : (
@@ -41,13 +41,13 @@ export default async function TenantPublicIndexPage({ params }: Params) {
             <li key={event.id}>
               <Link
                 href={`/${tenant.slug}/${event.slug}`}
-                className="hover:bg-muted/50 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+                className="neon-surface neon-surface-hover flex flex-col gap-1 rounded-2xl p-4 transition-colors"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{event.name}</span>
+                  <span className="font-bold tracking-tight text-white">{event.name}</span>
                   <EventPhaseBadge phase={event.phase} />
                 </div>
-                <span className="text-muted-foreground text-sm">
+                <span className="text-sm text-white/55">
                   {eventTypeLabel(event.eventType)} ·{" "}
                   {formatEventDates(event.startAt, event.endAt, event.timezone)}
                 </span>

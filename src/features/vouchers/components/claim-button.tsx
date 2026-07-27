@@ -17,14 +17,12 @@ export function ClaimButton({
   voucherId,
   claimable,
   claimed,
-  primaryColor,
 }: {
   tenantSlug: string;
   eventSlug: string;
   voucherId: string;
   claimable: boolean;
   claimed: boolean;
-  primaryColor?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -32,16 +30,20 @@ export function ClaimButton({
 
   if (claimed && !result?.code) {
     return (
-      <span className="text-muted-foreground text-sm font-medium">✓ Claimed — see My vouchers</span>
+      <span className="text-sm font-semibold text-[var(--neon-mint)]">
+        ✓ Claimed — see My vouchers
+      </span>
     );
   }
 
   if (result?.code) {
     return (
       <div className="grid gap-1">
-        <span className="text-sm font-medium text-green-700 dark:text-green-400">✓ Claimed</span>
-        <span className="font-mono text-lg font-semibold tracking-widest">{result.code}</span>
-        <span className="text-muted-foreground text-xs">Show this code at the stall.</span>
+        <span className="text-sm font-semibold text-[var(--neon-mint)]">✓ Claimed</span>
+        <span className="font-mono text-lg font-bold tracking-widest text-white">
+          {result.code}
+        </span>
+        <span className="text-xs text-white/50">Show this code at the stall.</span>
       </div>
     );
   }
@@ -63,12 +65,17 @@ export function ClaimButton({
             }
           });
         }}
-        className="w-fit rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
-        style={{ backgroundColor: primaryColor ?? "#0f172a" }}
+        className={
+          claimable
+            ? "neon-cta w-fit px-5 py-2.5 text-sm disabled:opacity-50"
+            : "w-fit rounded-full border border-white/16 bg-white/8 px-5 py-2.5 text-sm font-semibold text-white/60"
+        }
       >
         {pending ? "Claiming…" : claimable ? "Claim" : "Not available"}
       </button>
-      {result?.error ? <span className="text-destructive text-xs">{result.error}</span> : null}
+      {result?.error ? (
+        <span className="text-xs text-[var(--destructive)]">{result.error}</span>
+      ) : null}
     </div>
   );
 }
