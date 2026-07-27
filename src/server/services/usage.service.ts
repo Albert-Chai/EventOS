@@ -74,33 +74,50 @@ async function currentUsage(
   }
 }
 
-/** Usage-vs-limit for every §22 metric, for the billing dashboard. */
+/**
+ * Usage-vs-limit for the billing dashboard. Defaults to every §22 metric; pass
+ * `opts.metrics` to compute only a subset (the platform console asks for just the
+ * hard live metrics, so it doesn't fire the ledger-sum queries per tenant).
+ *
+ * `opts.sequential` runs the per-metric queries one at a time instead of
+ * concurrently. The platform console sweeps every tenant, so it uses this to
+ * avoid firing a burst of concurrent queries (tenants × metrics) at the shared
+ * transaction pooler — which, on the low dev/test connection cap, stalls. A
+ * single tenant's dashboard keeps the default concurrent path.
+ */
 export async function computeUsage(
   tenantId: string,
   plan: PlanDefinition,
-  opts: { eventId?: string } = {},
+  opts: { eventId?: string; metrics?: readonly UsageMetric[]; sequential?: boolean } = {},
 ): Promise<MetricUsage[]> {
   const now = new Date();
-  return Promise.all(
-    USAGE_METRICS.map(async (metric) => {
-      const meta = METRICS[metric];
-      const limit = limitFor(plan, metric);
-      const current = await currentUsage(tenantId, metric, opts.eventId, now);
-      const ratio = usageRatio(current, limit);
-      return {
-        metric,
-        label: meta.label,
-        unit: meta.unit,
-        perEvent: meta.perEvent,
-        hard: meta.hard,
-        current,
-        limit,
-        ratio,
-        warn: limit != null && ratio >= LIMIT_WARN_RATIO,
-        over: limit != null && current > limit,
-      } satisfies MetricUsage;
-    }),
-  );
+  const list = opts.metrics ?? USAGE_METRICS;
+
+  const computeOne = async (metric: UsageMetric): Promise<MetricUsage> => {
+    const meta = METRICS[metric];
+    const limit = limitFor(plan, metric);
+    const current = await currentUsage(tenantId, metric, opts.eventId, now);
+    const ratio = usageRatio(current, limit);
+    return {
+      metric,
+      label: meta.label,
+      unit: meta.unit,
+      perEvent: meta.perEvent,
+      hard: meta.hard,
+      current,
+      limit,
+      ratio,
+      warn: limit != null && ratio >= LIMIT_WARN_RATIO,
+      over: limit != null && current > limit,
+    } satisfies MetricUsage;
+  };
+
+  if (opts.sequential) {
+    const out: MetricUsage[] = [];
+    for (const metric of list) out.push(await computeOne(metric));
+    return out;
+  }
+  return Promise.all(list.map(computeOne));
 }
 
 /**

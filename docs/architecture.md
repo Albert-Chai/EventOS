@@ -1,7 +1,8 @@
 # Architecture
 
 Current as of Phase 8 (all §34 build phases complete) plus the status-scheduler
-follow-up (§16). Update this file whenever the shape changes (spec §33.2 rule 7).
+(§16) and platform-admin-console (§17) follow-ups. Update this file whenever the
+shape changes (spec §33.2 rule 7).
 
 ---
 
@@ -472,3 +473,37 @@ in `docs/background-jobs.md`). No schema change, no migration.
   sides of the start/end boundary; `tests/integration/scheduler.test.ts` (live DB)
   proves the right rows move, controls don't, transitions are audited with a null
   actor, and a second run is a no-op.
+
+## 17. Platform admin console — billing, usage & analytics (shipped)
+
+Follow-up that fills out the platform-admin surface with three cross-tenant,
+read-only views (design in `docs/platform-admin-plan.md`). No schema change.
+
+- **Three pages under `/platform`**, each re-gated by
+  `requirePlatformAdminOrRedirect`: **billing** (simulated revenue, paying-tenant
+  count, plan distribution, per-workspace table, recent invoices), **usage** (each
+  workspace's hard live metrics vs its plan, flagging near/over), and **analytics**
+  (total tracked events, unique visitors, top event names, per-workspace
+  engagement — read live from the raw `analytics_events` log).
+- **The §3.2 platform-authority axis, not tenant scoping.** New repository reads
+  (`listAllSubscriptions`, `platformInvoiceTotals`, `platform*` analytics) are
+  deliberately *unscoped* and documented as admin-only — the same shape as the
+  existing `listTenants()` / platform-wide `listAuditLogs({})`. No client value
+  reaches them; tenant ids come from the rows. A tenant *user* still can't cross
+  tenants — only this axis does, by design.
+- **Logic vs I/O split.** Pure summarizers (`server/platform/summary.ts`:
+  `planDistribution`, `countUsageFlags`) are unit-tested; `platform-metrics.service`
+  does the reads and hands them plain data. Kept separate from `platform.service`
+  (super-admin management) so each stays focused.
+- **Reads are sequential, on purpose.** These sweeps touch every tenant but run
+  rarely over tiny data. Firing `tenants × metrics` concurrent queries stalls the
+  shared transaction pooler at the low dev/test connection cap (`max: 1`), so the
+  assemblers await serially and `computeUsage` takes a `sequential` flag for the
+  platform path. A single-tenant dashboard keeps the concurrent path.
+- **Honest UI** — revenue is always labelled *simulated* (no Stripe yet), and the
+  console shows total simulated revenue + paying-tenant count rather than a
+  fabricated MRR (priced plans bill per-event, not monthly).
+- **Proven** — `tests/unit/platform-summary.test.ts` covers the summarizers;
+  `tests/integration/platform-console.test.ts` (live DB) creates one throwaway
+  tenant and asserts on its own row (correct plan, usage, engagement) plus
+  monotonic bounds on the global totals, rather than brittle absolute totals.

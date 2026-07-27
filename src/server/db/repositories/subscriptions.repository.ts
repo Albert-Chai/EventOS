@@ -18,6 +18,15 @@ export async function findSubscriptionForTenant(tenantId: string): Promise<Subsc
   return row ?? null;
 }
 
+/**
+ * Every subscription across all tenants. **Platform-admin only** — deliberately
+ * unscoped (the platform-authority axis, §3.2); the caller must gate with
+ * `requirePlatformAdmin`. Never reachable from a tenant user's path.
+ */
+export async function listAllSubscriptions(): Promise<Subscription[]> {
+  return db.select().from(subscriptions);
+}
+
 export async function insertSubscription(input: NewSubscription): Promise<Subscription> {
   const [row] = await db.insert(subscriptions).values(input).returning();
   return row;

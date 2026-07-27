@@ -14,6 +14,9 @@ import { requirePlatformAdminOrRedirect } from "@/server/policies/require-user";
 const NAV = [
   { href: "/platform", label: "Overview" },
   { href: "/platform/tenants", label: "Tenants" },
+  { href: "/platform/billing", label: "Billing" },
+  { href: "/platform/usage", label: "Usage" },
+  { href: "/platform/analytics", label: "Analytics" },
   { href: "/platform/plans", label: "Plans" },
   { href: "/platform/admins", label: "Admins" },
   { href: "/platform/audit", label: "Audit log" },

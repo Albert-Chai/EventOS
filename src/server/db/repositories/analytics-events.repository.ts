@@ -1,4 +1,4 @@
-import { and, count, countDistinct, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -6,6 +6,7 @@ import {
   events,
   merchantCategories,
   merchants,
+  tenants,
   type NewAnalyticsEvent,
 } from "@/server/db/schema";
 
@@ -209,4 +210,57 @@ export async function merchantEventsPerEvent(
     .innerJoin(events, eq(events.id, analyticsEvents.eventId))
     .where(and(merchantWindow(tenantId, merchantId, range), isNotNull(analyticsEvents.eventId)))
     .groupBy(events.id, events.name, analyticsEvents.name);
+}
+
+// --- Platform-admin (cross-tenant) ----------------------------------------
+//
+// Read **live from the raw log** across all tenants, like the per-tenant
+// dashboards, so the platform totals match the log by construction. These are
+// **platform-admin only** and deliberately unscoped (the §3.2 platform-authority
+// axis); callers must gate with `requirePlatformAdmin`.
+
+/** Total tracked events + distinct anonymous visitors across the whole platform. */
+export async function platformAnalyticsTotals(): Promise<{
+  totalEvents: number;
+  uniqueVisitors: number;
+}> {
+  const [row] = await db
+    .select({
+      totalEvents: count(),
+      uniqueVisitors: countDistinct(analyticsEvents.anonymousId),
+    })
+    .from(analyticsEvents);
+  return { totalEvents: row?.totalEvents ?? 0, uniqueVisitors: row?.uniqueVisitors ?? 0 };
+}
+
+/** The most frequent event names across the platform. */
+export async function platformEventsByName(limit = 8): Promise<NameCount[]> {
+  return db
+    .select({ name: analyticsEvents.name, count: count() })
+    .from(analyticsEvents)
+    .groupBy(analyticsEvents.name)
+    .orderBy(desc(count()))
+    .limit(Math.min(limit, 50));
+}
+
+export type TenantEngagement = {
+  tenantId: string;
+  tenantName: string | null;
+  totalEvents: number;
+  uniqueVisitors: number;
+};
+
+/** Per-tenant engagement (total events + unique visitors), busiest first. */
+export async function platformEventsPerTenant(): Promise<TenantEngagement[]> {
+  return db
+    .select({
+      tenantId: analyticsEvents.tenantId,
+      tenantName: tenants.name,
+      totalEvents: count(),
+      uniqueVisitors: countDistinct(analyticsEvents.anonymousId),
+    })
+    .from(analyticsEvents)
+    .leftJoin(tenants, eq(tenants.id, analyticsEvents.tenantId))
+    .groupBy(analyticsEvents.tenantId, tenants.name)
+    .orderBy(desc(count()));
 }
