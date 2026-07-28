@@ -1,9 +1,81 @@
 merchant_slug,item_name,description,price,promo_price,currency,dietary_tags,is_halal,availability,display_order
-nasi-kandar-lily,Ayam Goreng Rice,"Crispy fried chicken over rice with mixed curry gravy.",12.00,,MYR,spicy,yes,available,1
-nasi-kandar-lily,Fish Head Curry Rice,"Rich curry with a whole fish head — for two.",22.00,18.00,MYR,spicy;contains fish,yes,available,2
-char-koay-teow-ah-leng,Char Koay Teow (Regular),"Flat rice noodles with prawns, cockles, egg and chives.",10.00,,MYR,contains shellfish,no,available,1
-char-koay-teow-ah-leng,Char Koay Teow (Special),"Extra prawns and a duck egg.",15.00,,MYR,contains shellfish,no,available,2
-teh-tarik-corner,Teh Tarik,"Hot pulled milk tea.",3.50,,MYR,vegetarian,yes,available,1
-teh-tarik-corner,Cendol,"Shaved ice, coconut milk, palm sugar and green rice-flour jelly.",5.00,,MYR,vegetarian,yes,available,2
-apom-manis-mak,Apom Manis (3 pcs),"Sweet coconut pancakes.",6.00,,MYR,vegetarian,yes,available,1
-apom-manis-mak,Apom with Banana,"Apom manis topped with caramelised banana.",8.00,,MYR,vegetarian,yes,sold_out,2
+nasi-lemak-nusantara,Classic Nasi Lemak,"Coconut rice, sambal, anchovies, peanuts, egg, and cucumber.",12.00,10.00,MYR,spicy;contains nuts,yes,available,1
+nasi-lemak-nusantara,Nasi Lemak Ayam Berempah,Classic nasi lemak topped with aromatic fried chicken.,18.00,,MYR,spicy;contains nuts,yes,available,2
+satay-bara-kl,Chicken Satay Set,"Eight skewers with peanut sauce, cucumber, and rice cakes.",14.00,,MYR,contains nuts,yes,available,1
+satay-bara-kl,Beef Satay Set,Eight smoky beef skewers with traditional accompaniments.,16.00,14.00,MYR,contains nuts,yes,available,2
+rendang-rumah-minang,Beef Rendang Bowl,Slow-cooked beef rendang with steamed rice.,19.00,,MYR,spicy,yes,available,1
+rendang-rumah-minang,Mushroom Rendang Bowl,Plant-based mushroom rendang with steamed rice.,15.00,,MYR,spicy;vegetarian,yes,available,2
+ayam-gepuk-junction,Ayam Gepuk Original,"Crispy chicken, rice, tofu, tempeh, and sambal.",17.00,,MYR,spicy,yes,available,1
+ayam-gepuk-junction,Ayam Gepuk Extra Sambal,Original set with an extra scoop of fiery sambal.,19.00,17.00,MYR,very spicy,yes,available,2
+warung-mee-rebus,Classic Mee Rebus,Yellow noodles in thick sweet-potato gravy.,11.00,,MYR,contains egg,yes,available,1
+warung-mee-rebus,Mee Rebus Daging,Classic mee rebus topped with tender beef slices.,15.00,,MYR,contains egg,yes,available,2
+penang-wok-char-koay-teow,Char Koay Teow,"Wok-fried noodles with prawns, cockles, egg, and chives.",13.00,,MYR,contains shellfish,no,available,1
+penang-wok-char-koay-teow,Duck Egg Special,Char koay teow with duck egg and extra prawns.,17.00,15.00,MYR,contains shellfish,no,available,2
+hainan-kopitiam-88,Hainanese Chicken Chop,"Crispy chicken chop with brown sauce, peas, and potatoes.",18.00,,MYR,,yes,available,1
+hainan-kopitiam-88,Kaya Butter Toast,Charcoal toast with kaya and cold butter.,6.00,,MYR,vegetarian;contains dairy,yes,available,2
+dragon-dumpling-house,Pan-Fried Chicken Dumplings,Six crispy-bottomed chicken dumplings.,12.00,,MYR,contains gluten,yes,available,1
+dragon-dumpling-house,Vegetable Dumplings,"Six dumplings filled with cabbage, mushroom, and chives.",10.00,,MYR,vegetarian;contains gluten,yes,available,2
+uncle-lims-roast,Roast Chicken Rice,Cantonese roast chicken with rice and greens.,14.00,,MYR,,yes,available,1
+uncle-lims-roast,Honey Char Siu Rice,Caramelised pork char siu with fragrant rice.,16.00,,MYR,,no,available,2
+little-ipoh-noodles,Ipoh Shredded Chicken Hor Fun,Silky rice noodles in chicken and prawn broth.,13.00,,MYR,contains shellfish,yes,available,1
+little-ipoh-noodles,Dry Curry Chicken Noodles,Springy noodles tossed in creamy curry sauce.,14.00,,MYR,spicy,yes,available,2
+mamak-express,Roti Canai Set,Two roti canai with dhal and curry.,7.00,,MYR,vegetarian;contains gluten,yes,available,1
+mamak-express,Mee Goreng Mamak,"Wok-fried noodles with tofu, potato, and egg.",12.00,10.00,MYR,spicy;contains egg,yes,available,2
+spice-route-briyani,Chicken Dum Briyani,Basmati rice layered with spiced chicken.,17.00,,MYR,,yes,available,1
+spice-route-briyani,Vegetable Dum Briyani,"Basmati rice with vegetables, herbs, and raita.",14.00,,MYR,vegetarian;contains dairy,yes,available,2
+banana-leaf-brothers,Banana Leaf Rice,"Rice, three vegetables, dhal, rasam, and papadom.",13.00,,MYR,vegetarian,yes,available,1
+banana-leaf-brothers,Mutton Curry Add-On,Slow-cooked mutton curry portion.,12.00,,MYR,spicy,yes,available,2
+tandoor-lane,Chicken Tikka Wrap,"Tandoori chicken, salad, and mint sauce in naan.",16.00,,MYR,contains dairy;contains gluten,yes,available,1
+tandoor-lane,Paneer Tikka Plate,Grilled paneer with peppers and mint chutney.,18.00,16.00,MYR,vegetarian;contains dairy,yes,available,2
+chaat-street-kl,Pani Puri,Six crisp shells with potato filling and spiced water.,9.00,,MYR,vegetarian,yes,available,1
+chaat-street-kl,Loaded Samosa Chaat,"Samosa, chickpeas, yoghurt, chutney, and sev.",12.00,,MYR,vegetarian;contains dairy,yes,available,2
+seoul-bites,Korean Fried Chicken Cup,Crispy chicken bites with sweet-spicy glaze.,15.00,,MYR,spicy,yes,available,1
+seoul-bites,Tteokbokki,Rice cakes in a bold gochujang sauce.,12.00,10.00,MYR,spicy,yes,available,2
+tokyo-grill-box,Teriyaki Chicken Don,"Grilled chicken, rice, vegetables, and teriyaki sauce.",17.00,,MYR,,yes,available,1
+tokyo-grill-box,Beef Yakiniku Don,Savoury grilled beef over Japanese rice.,20.00,,MYR,,yes,available,2
+thai-basil-kitchen,Pad Kra Pao Chicken,Basil chicken with rice and fried egg.,15.00,,MYR,spicy;contains egg,yes,available,1
+thai-basil-kitchen,Thai Green Curry,"Green curry with chicken, vegetables, and rice.",16.00,14.00,MYR,spicy,yes,available,2
+saigon-rolls,Fresh Prawn Rolls,"Two rice-paper rolls with prawns, herbs, and dipping sauce.",11.00,,MYR,contains shellfish,yes,available,1
+saigon-rolls,Lemongrass Chicken Banh Mi,"Crisp baguette with chicken, pickles, and herbs.",14.00,,MYR,contains gluten,yes,available,2
+taipei-night-snacks,XXL Chicken Cutlet,Crispy Taiwanese chicken cutlet with pepper seasoning.,16.00,,MYR,spicy,yes,available,1
+taipei-night-snacks,Sweet Potato Balls,Crispy chewy sweet potato bites.,8.00,,MYR,vegetarian,yes,available,2
+burger-bengkel,Sambal Smash Burger,"Beef patty, cheese, sambal mayo, and pickles.",19.00,17.00,MYR,spicy;contains dairy,yes,available,1
+burger-bengkel,Crispy Chicken Burger,"Fried chicken, slaw, and smoky sauce.",17.00,,MYR,contains gluten,yes,available,2
+firewood-pizza-co,Margherita Pizza,"Tomato, mozzarella, basil, and olive oil.",22.00,,MYR,vegetarian;contains dairy,yes,available,1
+firewood-pizza-co,Spicy Beef Pepperoni Pizza,"Mozzarella, beef pepperoni, chilli, and honey.",28.00,25.00,MYR,spicy;contains dairy,yes,available,2
+taco-lokal,Rendang Beef Tacos,Two soft tacos with beef rendang and pickled onions.,16.00,,MYR,spicy;contains gluten,yes,available,1
+taco-lokal,Tempeh Sambal Tacos,Two vegetarian tacos with tempeh and sambal.,14.00,,MYR,spicy;vegetarian;contains gluten,yes,available,2
+smokehouse-yard,Smoked Beef Brisket Box,"Beef brisket, slaw, pickles, and soft roll.",28.00,,MYR,,yes,available,1
+smokehouse-yard,Smoked Chicken Quarter,Smoked chicken with barbecue glaze and corn.,22.00,20.00,MYR,,yes,available,2
+loaded-fries-lab,Cheesy Beef Fries,Fries loaded with minced beef and cheese sauce.,15.00,,MYR,contains dairy,yes,available,1
+loaded-fries-lab,Salted Egg Fries,Crispy fries tossed in salted egg seasoning.,13.00,,MYR,contains egg,yes,available,2
+teh-tarik-studio,Classic Teh Tarik,Pulled milk tea served hot or iced.,5.00,,MYR,vegetarian;contains dairy,yes,available,1
+teh-tarik-studio,Teh Tarik Gula Melaka,Pulled milk tea with palm sugar syrup.,7.00,6.00,MYR,vegetarian;contains dairy,yes,available,2
+kopi-kecil,Iced Kopi Susu,Strong local coffee with condensed milk.,7.00,,MYR,vegetarian;contains dairy,yes,available,1
+kopi-kecil,Gula Melaka Cold Brew,Cold brew with palm sugar and fresh milk.,10.00,,MYR,vegetarian;contains dairy,yes,available,2
+matcha-mori,Ceremonial Matcha Latte,Freshly whisked matcha with milk.,12.00,,MYR,vegetarian;contains dairy,yes,available,1
+matcha-mori,Strawberry Matcha,Layered strawberry milk and premium matcha.,14.00,12.00,MYR,vegetarian;contains dairy,yes,available,2
+buah-segar-bar,Mango Passion Cooler,"Mango, passion fruit, lime, and soda.",10.00,,MYR,vegan,yes,available,1
+buah-segar-bar,Watermelon Mint Juice,Fresh watermelon blended with mint.,8.00,,MYR,vegan,yes,available,2
+soda-rempah,Lemongrass Ginger Soda,Sparkling soda with lemongrass and ginger.,9.00,,MYR,vegan,yes,available,1
+soda-rempah,Asam Boi Calamansi Fizz,Tangy calamansi soda with preserved plum.,9.00,8.00,MYR,vegan,yes,available,2
+cendol-kampung,Classic Cendol,"Coconut milk, gula Melaka, pandan jelly, and shaved ice.",7.00,,MYR,vegetarian,yes,available,1
+cendol-kampung,Durian Cendol,Classic cendol topped with durian pulp.,13.00,,MYR,vegetarian,yes,available,2
+ais-kacang-club,Classic ABC,"Shaved ice with syrup, corn, beans, jelly, and peanuts.",8.00,,MYR,vegetarian;contains nuts,yes,available,1
+ais-kacang-club,Mango Snow Ice,Fine shaved ice with mango and popping pearls.,11.00,9.00,MYR,vegetarian,yes,available,2
+kuih-kita,Kuih Tasting Box,Six assorted traditional Malaysian kuih.,12.00,,MYR,vegetarian,yes,available,1
+kuih-kita,Ondeh-Ondeh Cup,Pandan rice balls filled with molten gula Melaka.,8.00,,MYR,vegetarian,yes,available,2
+churros-chow,Cinnamon Churros,Six churros with chocolate dip.,10.00,,MYR,vegetarian;contains gluten,yes,available,1
+churros-chow,Pandan Churros,Pandan churros with gula Melaka dip.,12.00,10.00,MYR,vegetarian;contains gluten,yes,available,2
+soft-serve-social,Gula Melaka Soft Serve,Creamy soft serve with gula Melaka drizzle.,9.00,,MYR,vegetarian;contains dairy,yes,available,1
+soft-serve-social,Pandan Coconut Sundae,Pandan soft serve with coconut flakes.,12.00,,MYR,vegetarian;contains dairy,yes,available,2
+plant-powered-bowl,Tempeh Satay Bowl,"Brown rice, tempeh, vegetables, and peanut dressing.",16.00,,MYR,vegan;contains nuts,yes,available,1
+plant-powered-bowl,Jackfruit Rendang Bowl,Spiced jackfruit rendang with turmeric rice.,17.00,15.00,MYR,vegan;spicy,yes,available,2
+green-wrap-cafe,Grilled Vegetable Wrap,"Grilled vegetables, hummus, and greens.",14.00,,MYR,vegan;contains gluten,yes,available,1
+green-wrap-cafe,Herbed Chicken Wrap,"Chicken, lettuce, tomato, and yoghurt dressing.",16.00,,MYR,contains dairy;contains gluten,yes,available,2
+sourdough-society,Chicken Pesto Sourdough,"Toasted sourdough with chicken, pesto, and cheese.",18.00,,MYR,contains gluten;contains dairy;contains nuts,yes,available,1
+sourdough-society,Mushroom Melt Sourdough,"Mushrooms, caramelised onions, and cheese.",16.00,14.00,MYR,vegetarian;contains gluten;contains dairy,yes,available,2
+cookie-atelier-kl,Dark Chocolate Chunk Cookie,Thick cookie with dark chocolate chunks.,8.00,,MYR,vegetarian;contains gluten;contains dairy,yes,available,1
+cookie-atelier-kl,Pistachio Cream Cookie,Cookie filled with pistachio cream.,11.00,,MYR,vegetarian;contains gluten;contains dairy;contains nuts,yes,sold_out,2
+bunga-craft-market,Mini Dried Flower Bouquet,Hand-tied dried flower bouquet.,25.00,,MYR,,yes,available,1
+bunga-craft-market,KL Festival Postcard Set,Set of five illustrated Kuala Lumpur postcards.,12.00,10.00,MYR,,yes,available,2
