@@ -46,7 +46,7 @@ The organiser workspace and its event. **One data row only.**
 | `visibility` | | `public` (default), `unlisted`, or `private` |
 | `primary_color` | | Hex, e.g. `#e11d48` — themes the event |
 | `enable_vouchers` | | `yes`/`no` — turns on the public vouchers page |
-| `enable_maps` | | `yes`/`no` — leave `no` for now (booth map comes later) |
+| `enable_maps` | | `yes`/`no` — `yes` auto-generates a schematic map: one booth per merchant in a grid grouped by zone, each assigned to its merchant (no floor image needed) |
 
 The public site will be at **`/{workspace_slug}/{event_slug}`**.
 
@@ -117,6 +117,7 @@ Leave this file with just its header row if you don't want vouchers. Needs
 - `/{workspace_slug}/{event_slug}` — the event page
 - `…/merchants` — searchable directory (your categories + zones as filters)
 - `…/{merchant_slug}` — a merchant page with its menu
+- `…/map` — the interactive booth map (only when `enable_maps` = `yes`)
 - `…/vouchers` → claim → `…/vouchers/mine` (code + QR)
 - Sign in as `organizer.owner@eventos.test` (password `eventos-dev-password`) to
   see the same content in the **dashboard**.

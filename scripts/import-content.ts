@@ -20,11 +20,15 @@ import { ITEM_AVAILABILITIES, type ItemAvailability } from "@/server/merchants/s
 import { VOUCHER_STATUSES, VOUCHER_TYPES, type VoucherStatus, type VoucherType } from "@/server/vouchers/status";
 
 const {
+  booths,
+  boothAssignments,
   eventBranding,
   eventSettings,
   events,
   featuredPlacements,
   listingItems,
+  mapFloors,
+  maps,
   merchantCategories,
   merchantEventParticipations,
   merchants,
@@ -286,14 +290,19 @@ async function main(): Promise<void> {
       for (const c of rows) catId.set(c.name, c.id);
     }
 
-    // zones (bulk) — from distinct merchant zones
+    // zones (bulk) — from distinct merchant zones; capture ids to colour booths
     const zoneNames = [
       ...new Set(merchantRows.map((m) => orNull(m.zone)).filter((v): v is string => v !== null)),
     ];
+    const zoneIdByName = new Map<string, string>();
     if (zoneNames.length) {
-      await tx.insert(zones).values(
-        zoneNames.map((name, i) => ({ tenantId: tenant.id, eventId: event.id, name, displayOrder: i })),
-      );
+      const zRows = await tx
+        .insert(zones)
+        .values(
+          zoneNames.map((name, i) => ({ tenantId: tenant.id, eventId: event.id, name, displayOrder: i })),
+        )
+        .returning({ id: zones.id, name: zones.name });
+      for (const z of zRows) zoneIdByName.set(z.name, z.id);
     }
 
     // merchants (bulk) → slug → id
@@ -417,7 +426,103 @@ async function main(): Promise<void> {
       );
     }
 
-    return { tenant, event, replaced, categories: catId.size, zones: zoneNames.length, featured: featuredMerchants.length };
+    // interactive map (opt-in via enable_maps): a schematic floor with one booth
+    // per merchant, laid out in a grid grouped by zone, each assigned to its
+    // merchant. Booth coords are normalized 0..1, so no floor image is needed —
+    // PublicMap draws them over a grid background. This also lights up each
+    // merchant's "Booth X — find on map" link (findPublicBoothNumberForMerchant).
+    let boothCount = 0;
+    if (yn(we.enable_maps)) {
+      const [map] = await tx
+        .insert(maps)
+        .values({ tenantId: tenant.id, eventId: event.id, name: "Festival Grounds" })
+        .returning({ id: maps.id });
+      const [floor] = await tx
+        .insert(mapFloors)
+        .values({
+          tenantId: tenant.id,
+          eventId: event.id,
+          mapId: map.id,
+          name: "Ground Floor",
+          imageWidth: 1200,
+          imageHeight: 800,
+        })
+        .returning({ id: mapFloors.id });
+
+      // group merchants by zone (row order); any with no zone share a final row
+      const NO_ZONE = "__no_zone__";
+      const byZone = new Map<string, Row[]>();
+      for (const m of merchantRows) {
+        const z = orNull(m.zone) ?? NO_ZONE;
+        const arr = byZone.get(z);
+        if (arr) arr.push(m);
+        else byZone.set(z, [m]);
+      }
+      const rowKeys = [...byZone.keys()];
+      const rowCount = rowKeys.length;
+
+      const boothPlan = rowKeys.flatMap((zoneKey, zi) => {
+        const rowMerchants = byZone.get(zoneKey)!;
+        const cols = rowMerchants.length;
+        const letter =
+          zoneKey === NO_ZONE
+            ? "Z"
+            : (zoneKey.trim().match(/[A-Za-z0-9]+$/)?.[0]?.toUpperCase() ??
+              String.fromCharCode(65 + zi));
+        const y = rowCount === 1 ? 0.5 : 0.12 + (zi / (rowCount - 1)) * 0.76;
+        return rowMerchants.map((m, ci) => ({
+          slug: m.merchant_slug.trim(),
+          boothNumber: `${letter}${ci + 1}`,
+          name: orNull(m.listing_title) ?? m.merchant_name.trim(),
+          zoneId: zoneKey === NO_ZONE ? null : (zoneIdByName.get(zoneKey) ?? null),
+          x: 0.07 + ((ci + 0.5) / cols) * 0.86,
+          y,
+        }));
+      });
+
+      const boothRows = await tx
+        .insert(booths)
+        .values(
+          boothPlan.map((b) => ({
+            tenantId: tenant.id,
+            eventId: event.id,
+            mapFloorId: floor.id,
+            zoneId: b.zoneId,
+            boothNumber: b.boothNumber,
+            name: b.name,
+            x: b.x,
+            y: b.y,
+            width: 0.11,
+            height: 0.07,
+            status: "confirmed" as const,
+          })),
+        )
+        .returning({ id: booths.id, boothNumber: booths.boothNumber });
+      const boothIdByNumber = new Map(boothRows.map((r) => [r.boothNumber, r.id]));
+
+      await tx.insert(boothAssignments).values(
+        boothPlan.map((b) => ({
+          tenantId: tenant.id,
+          eventId: event.id,
+          boothId: boothIdByNumber.get(b.boothNumber)!,
+          participationId: participationIdBySlug.get(b.slug)!,
+          merchantId: merchantIdBySlug.get(b.slug)!,
+          status: "confirmed" as const,
+          assignedBy: ownerId,
+        })),
+      );
+      boothCount = boothPlan.length;
+    }
+
+    return {
+      tenant,
+      event,
+      replaced,
+      categories: catId.size,
+      zones: zoneNames.length,
+      featured: featuredMerchants.length,
+      booths: boothCount,
+    };
   });
 
   const { tenant, event } = built;
@@ -437,12 +542,14 @@ async function main(): Promise<void> {
   );
   if (itemRows.length) console.log(`  + ${itemRows.length} menu item(s)`);
   if (voucherRows.length) console.log(`  + ${voucherRows.length} voucher(s)`);
+  if (built.booths) console.log(`  + interactive map: 1 floor, ${built.booths} booths assigned`);
 
   console.log(`\n✓ Imported. Visit:  /${tenant.slug}/${event.slug}`);
   console.log(`   directory:        /${tenant.slug}/${event.slug}/merchants`);
   if (yn(we.enable_vouchers) || voucherRows.length > 0) {
     console.log(`   vouchers:         /${tenant.slug}/${event.slug}/vouchers`);
   }
+  if (built.booths) console.log(`   map:              /${tenant.slug}/${event.slug}/map`);
   console.log("");
   process.exit(0);
 }
