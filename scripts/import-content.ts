@@ -23,6 +23,7 @@ const {
   eventBranding,
   eventSettings,
   events,
+  featuredPlacements,
   listingItems,
   merchantCategories,
   merchantEventParticipations,
@@ -210,177 +211,232 @@ async function main(): Promise<void> {
   const [owner] = await db.select().from(profiles).where(eq(profiles.email, "organizer.owner@eventos.test")).limit(1);
   const ownerId = owner?.id ?? null;
 
-  // --- reset the workspace (delete-by-slug cascades all its content) ------
+  // --- one atomic rebuild: delete-by-slug, then bulk-insert everything -----
+  // Batched inserts inside a single transaction keep the whole rebuild to a
+  // handful of round-trips (it was ~160 one-at-a-time inserts). On a flaky link
+  // that shrinks the window for a dropped connection, and a failure now rolls
+  // back cleanly instead of leaving a half-built workspace behind.
   const wSlug = we.workspace_slug.trim();
-  const [existing] = await db.select().from(tenants).where(eq(tenants.slug, wSlug)).limit(1);
-  if (existing) {
-    await db.delete(tenants).where(eq(tenants.id, existing.id));
-    console.log(`  ~ replaced existing workspace '${wSlug}'`);
-  }
 
-  // --- workspace + membership --------------------------------------------
-  const [tenant] = await db
-    .insert(tenants)
-    .values({ name: we.workspace_name.trim(), slug: wSlug, status: "active", createdBy: ownerId })
-    .returning();
-  console.log(`  + workspace ${tenant.name} (/${tenant.slug})`);
+  const built = await db.transaction(async (tx) => {
+    const [existing] = await tx.select().from(tenants).where(eq(tenants.slug, wSlug)).limit(1);
+    const replaced = Boolean(existing);
+    if (existing) await tx.delete(tenants).where(eq(tenants.id, existing.id));
 
-  if (ownerId) {
-    const [member] = await db
-      .insert(tenantMembers)
-      .values({ tenantId: tenant.id, userId: ownerId, status: "active", joinedAt: new Date() })
+    const now = new Date();
+
+    // workspace + membership
+    const [tenant] = await tx
+      .insert(tenants)
+      .values({ name: we.workspace_name.trim(), slug: wSlug, status: "active", createdBy: ownerId })
       .returning();
-    await db.insert(tenantMemberRoles).values({ tenantMemberId: member.id, roleKey: "owner" });
-    console.log("  + organizer.owner@eventos.test attached as owner");
-  } else {
-    console.log("  ! organizer.owner@eventos.test not found — dashboard access skipped (public site still works). Run `pnpm db:seed` for the login accounts.");
-  }
 
-  // --- event + settings + branding ---------------------------------------
-  const now = new Date();
-  const [event] = await db
-    .insert(events)
-    .values({
-      tenantId: tenant.id,
-      name: we.event_name.trim(),
-      slug: we.event_slug.trim(),
-      eventType: we.event_type as EventType, // validated above
-      shortDescription: orNull(we.short_description),
-      description: orNull(we.description),
-      venueName: orNull(we.venue_name),
-      venueAddress: orNull(we.venue_address),
-      timezone: orNull(we.timezone) ?? "Asia/Kuala_Lumpur",
-      startAt: dateOrNull(we.start_date),
-      endAt: dateOrNull(we.end_date, true),
-      status: "published",
-      visibility: (orNull(we.visibility) ?? "public") as EventVisibility,
-      publishedAt: now,
-      createdBy: ownerId,
-    })
-    .returning();
+    if (ownerId) {
+      const [member] = await tx
+        .insert(tenantMembers)
+        .values({ tenantId: tenant.id, userId: ownerId, status: "active", joinedAt: now })
+        .returning();
+      await tx.insert(tenantMemberRoles).values({ tenantMemberId: member.id, roleKey: "owner" });
+    }
 
-  await db.insert(eventSettings).values({
-    tenantId: tenant.id,
-    eventId: event.id,
-    enableVouchers: yn(we.enable_vouchers) || voucherRows.length > 0,
-    enableMaps: yn(we.enable_maps),
-  });
-  await db.insert(eventBranding).values({
-    tenantId: tenant.id,
-    eventId: event.id,
-    primaryColor: orNull(we.primary_color) ?? "#0f172a",
-  });
-  console.log(`  + event ${event.name} (/${tenant.slug}/${event.slug}) [published]`);
-
-  // --- categories (from distinct merchant categories) --------------------
-  const catId = new Map<string, string>();
-  for (const name of [...new Set(merchantRows.map((m) => orNull(m.category)).filter((v): v is string => v !== null))]) {
-    const [c] = await db
-      .insert(merchantCategories)
-      .values({ tenantId: tenant.id, name, slug: slugify(name) })
-      .returning();
-    catId.set(name, c.id);
-  }
-  if (catId.size) console.log(`  + ${catId.size} categor${catId.size === 1 ? "y" : "ies"}`);
-
-  // --- zones (from distinct merchant zones) ------------------------------
-  let zOrder = 0;
-  for (const name of [...new Set(merchantRows.map((m) => orNull(m.zone)).filter((v): v is string => v !== null))]) {
-    await db.insert(zones).values({ tenantId: tenant.id, eventId: event.id, name, displayOrder: zOrder++ });
-  }
-  if (zOrder) console.log(`  + ${zOrder} zone(s)`);
-
-  // --- merchants + approved participations -------------------------------
-  const merchantIdBySlug = new Map<string, string>();
-  const participationIdBySlug = new Map<string, string>();
-  let featuredRank = 0;
-  for (const m of merchantRows) {
-    const [merchant] = await db
-      .insert(merchants)
+    // event + settings + branding
+    const [event] = await tx
+      .insert(events)
       .values({
         tenantId: tenant.id,
-        name: m.merchant_name.trim(),
-        slug: m.merchant_slug.trim(),
-        categoryId: orNull(m.category) ? (catId.get(m.category.trim()) ?? null) : null,
-        description: orNull(m.description),
-        contactEmail: orNull(m.contact_email),
-        contactPhone: orNull(m.contact_phone),
-        website: orNull(m.website),
-        status: "active",
+        name: we.event_name.trim(),
+        slug: we.event_slug.trim(),
+        eventType: we.event_type as EventType, // validated above
+        shortDescription: orNull(we.short_description),
+        description: orNull(we.description),
+        venueName: orNull(we.venue_name),
+        venueAddress: orNull(we.venue_address),
+        timezone: orNull(we.timezone) ?? "Asia/Kuala_Lumpur",
+        startAt: dateOrNull(we.start_date),
+        endAt: dateOrNull(we.end_date, true),
+        status: "published",
+        visibility: (orNull(we.visibility) ?? "public") as EventVisibility,
+        publishedAt: now,
         createdBy: ownerId,
       })
       .returning();
-    merchantIdBySlug.set(m.merchant_slug.trim(), merchant.id);
 
-    const [participation] = await db
+    await tx.insert(eventSettings).values({
+      tenantId: tenant.id,
+      eventId: event.id,
+      enableVouchers: yn(we.enable_vouchers) || voucherRows.length > 0,
+      enableMaps: yn(we.enable_maps),
+    });
+    await tx.insert(eventBranding).values({
+      tenantId: tenant.id,
+      eventId: event.id,
+      primaryColor: orNull(we.primary_color) ?? "#0f172a",
+    });
+
+    // categories (bulk) — from distinct merchant categories
+    const catNames = [
+      ...new Set(merchantRows.map((m) => orNull(m.category)).filter((v): v is string => v !== null)),
+    ];
+    const catId = new Map<string, string>();
+    if (catNames.length) {
+      const rows = await tx
+        .insert(merchantCategories)
+        .values(catNames.map((name) => ({ tenantId: tenant.id, name, slug: slugify(name) })))
+        .returning({ id: merchantCategories.id, name: merchantCategories.name });
+      for (const c of rows) catId.set(c.name, c.id);
+    }
+
+    // zones (bulk) — from distinct merchant zones
+    const zoneNames = [
+      ...new Set(merchantRows.map((m) => orNull(m.zone)).filter((v): v is string => v !== null)),
+    ];
+    if (zoneNames.length) {
+      await tx.insert(zones).values(
+        zoneNames.map((name, i) => ({ tenantId: tenant.id, eventId: event.id, name, displayOrder: i })),
+      );
+    }
+
+    // merchants (bulk) → slug → id
+    const merchantIdBySlug = new Map<string, string>();
+    const mRows = await tx
+      .insert(merchants)
+      .values(
+        merchantRows.map((m) => ({
+          tenantId: tenant.id,
+          name: m.merchant_name.trim(),
+          slug: m.merchant_slug.trim(),
+          categoryId: orNull(m.category) ? (catId.get(m.category.trim()) ?? null) : null,
+          description: orNull(m.description),
+          contactEmail: orNull(m.contact_email),
+          contactPhone: orNull(m.contact_phone),
+          website: orNull(m.website),
+          status: "active" as const,
+          createdBy: ownerId,
+        })),
+      )
+      .returning({ id: merchants.id, slug: merchants.slug });
+    for (const r of mRows) merchantIdBySlug.set(r.slug, r.id);
+
+    // participations (bulk) → slug → participationId, assigning featured ranks
+    let featuredRank = 0;
+    const pRows = await tx
       .insert(merchantEventParticipations)
-      .values({
-        tenantId: tenant.id,
-        eventId: event.id,
-        merchantId: merchant.id,
-        listingTitle: orNull(m.listing_title) ?? m.merchant_name.trim(),
-        listingDescription: orNull(m.listing_description) ?? orNull(m.description),
-        approvalStatus: "approved",
-        submittedAt: now,
-        approvedAt: now,
-        reviewedBy: ownerId,
-        featuredRank: yn(m.featured) ? ++featuredRank : null,
-      })
-      .returning();
-    participationIdBySlug.set(m.merchant_slug.trim(), participation.id);
-  }
-  console.log(`  + ${merchantRows.length} merchant(s) with approved listings`);
+      .values(
+        merchantRows.map((m) => ({
+          tenantId: tenant.id,
+          eventId: event.id,
+          merchantId: merchantIdBySlug.get(m.merchant_slug.trim())!,
+          listingTitle: orNull(m.listing_title) ?? m.merchant_name.trim(),
+          listingDescription: orNull(m.listing_description) ?? orNull(m.description),
+          approvalStatus: "approved" as const,
+          submittedAt: now,
+          approvedAt: now,
+          reviewedBy: ownerId,
+          featuredRank: yn(m.featured) ? ++featuredRank : null,
+        })),
+      )
+      .returning({
+        id: merchantEventParticipations.id,
+        merchantId: merchantEventParticipations.merchantId,
+      });
+    const participationIdByMerchantId = new Map(pRows.map((r) => [r.merchantId, r.id]));
+    const participationIdBySlug = new Map<string, string>();
+    for (const [slug, mid] of merchantIdBySlug) {
+      participationIdBySlug.set(slug, participationIdByMerchantId.get(mid)!);
+    }
 
-  // --- listing items ------------------------------------------------------
-  let itemCount = 0;
-  for (const it of itemRows) {
-    const slug = it.merchant_slug.trim();
-    await db.insert(listingItems).values({
-      tenantId: tenant.id,
-      participationId: participationIdBySlug.get(slug)!,
-      merchantId: merchantIdBySlug.get(slug)!,
-      eventId: event.id,
-      name: it.item_name.trim(),
-      description: orNull(it.description),
-      price: orNull(it.price),
-      promoPrice: orNull(it.promo_price),
-      currency: orNull(it.currency) ?? "MYR",
-      dietaryTags: orNull(it.dietary_tags)
-        ? it.dietary_tags.split(";").map((s) => s.trim()).filter(Boolean)
-        : [],
-      isHalal: yn(it.is_halal),
-      availability: (orNull(it.availability) ?? "available") as ItemAvailability,
-      displayOrder: intOrNull(it.display_order) ?? 0,
-    });
-    itemCount++;
-  }
-  if (itemCount) console.log(`  + ${itemCount} menu item(s)`);
+    // featured placements (bulk, featured only). A featured merchant needs BOTH:
+    // featured_rank (above) boosts it in the directory SQL, and an open
+    // featured_placement is what drives the ★ badge + the landing highlight
+    // (listFeaturedParticipationIds). featureMerchant() writes both in the app.
+    const featuredMerchants = merchantRows.filter((m) => yn(m.featured));
+    if (featuredMerchants.length) {
+      await tx.insert(featuredPlacements).values(
+        featuredMerchants.map((m, i) => ({
+          tenantId: tenant.id,
+          eventId: event.id,
+          participationId: participationIdBySlug.get(m.merchant_slug.trim())!,
+          merchantId: merchantIdBySlug.get(m.merchant_slug.trim())!,
+          placementType: "homepage_featured" as const,
+          rankPriority: i + 1,
+          paymentStatus: "included" as const,
+          createdBy: ownerId,
+        })),
+      );
+    }
 
-  // --- vouchers -----------------------------------------------------------
-  let voucherCount = 0;
-  for (const v of voucherRows) {
-    const merchantId = orNull(v.merchant_slug) ? (merchantIdBySlug.get(v.merchant_slug.trim()) ?? null) : null;
-    await db.insert(vouchers).values({
-      tenantId: tenant.id,
-      eventId: event.id,
-      merchantId,
-      title: v.title.trim(),
-      description: orNull(v.description),
-      terms: orNull(v.terms),
-      voucherType: v.type as VoucherType, // validated above
-      discountPercent: intOrNull(v.discount_percent),
-      discountAmountCents: centsOrNull(v.discount_amount),
-      currency: "MYR",
-      minSpendCents: centsOrNull(v.min_spend),
-      status: (orNull(v.status) ?? "active") as VoucherStatus,
-      startsAt: dateOrNull(v.starts_date),
-      endsAt: dateOrNull(v.ends_date, true),
-      totalQuantity: intOrNull(v.total_quantity),
-      perVisitorLimit: intOrNull(v.per_visitor_limit) ?? 1,
-    });
-    voucherCount++;
-  }
-  if (voucherCount) console.log(`  + ${voucherCount} voucher(s)`);
+    // listing items (bulk)
+    if (itemRows.length) {
+      await tx.insert(listingItems).values(
+        itemRows.map((it) => {
+          const slug = it.merchant_slug.trim();
+          return {
+            tenantId: tenant.id,
+            participationId: participationIdBySlug.get(slug)!,
+            merchantId: merchantIdBySlug.get(slug)!,
+            eventId: event.id,
+            name: it.item_name.trim(),
+            description: orNull(it.description),
+            price: orNull(it.price),
+            promoPrice: orNull(it.promo_price),
+            currency: orNull(it.currency) ?? "MYR",
+            dietaryTags: orNull(it.dietary_tags)
+              ? it.dietary_tags.split(";").map((s) => s.trim()).filter(Boolean)
+              : [],
+            isHalal: yn(it.is_halal),
+            availability: (orNull(it.availability) ?? "available") as ItemAvailability,
+            displayOrder: intOrNull(it.display_order) ?? 0,
+          };
+        }),
+      );
+    }
+
+    // vouchers (bulk)
+    if (voucherRows.length) {
+      await tx.insert(vouchers).values(
+        voucherRows.map((v) => ({
+          tenantId: tenant.id,
+          eventId: event.id,
+          merchantId: orNull(v.merchant_slug)
+            ? (merchantIdBySlug.get(v.merchant_slug.trim()) ?? null)
+            : null,
+          title: v.title.trim(),
+          description: orNull(v.description),
+          terms: orNull(v.terms),
+          voucherType: v.type as VoucherType, // validated above
+          discountPercent: intOrNull(v.discount_percent),
+          discountAmountCents: centsOrNull(v.discount_amount),
+          currency: "MYR",
+          minSpendCents: centsOrNull(v.min_spend),
+          status: (orNull(v.status) ?? "active") as VoucherStatus,
+          startsAt: dateOrNull(v.starts_date),
+          endsAt: dateOrNull(v.ends_date, true),
+          totalQuantity: intOrNull(v.total_quantity),
+          perVisitorLimit: intOrNull(v.per_visitor_limit) ?? 1,
+        })),
+      );
+    }
+
+    return { tenant, event, replaced, categories: catId.size, zones: zoneNames.length, featured: featuredMerchants.length };
+  });
+
+  const { tenant, event } = built;
+  if (built.replaced) console.log(`  ~ replaced existing workspace '${wSlug}'`);
+  console.log(`  + workspace ${tenant.name} (/${tenant.slug})`);
+  console.log(
+    ownerId
+      ? "  + organizer.owner@eventos.test attached as owner"
+      : "  ! organizer.owner@eventos.test not found — dashboard access skipped (public site still works). Run `pnpm db:seed` for the login accounts.",
+  );
+  console.log(`  + event ${event.name} (/${tenant.slug}/${event.slug}) [published]`);
+  if (built.categories) console.log(`  + ${built.categories} categor${built.categories === 1 ? "y" : "ies"}`);
+  if (built.zones) console.log(`  + ${built.zones} zone(s)`);
+  console.log(
+    `  + ${merchantRows.length} merchant(s) with approved listings` +
+      (built.featured ? ` (${built.featured} featured)` : ""),
+  );
+  if (itemRows.length) console.log(`  + ${itemRows.length} menu item(s)`);
+  if (voucherRows.length) console.log(`  + ${voucherRows.length} voucher(s)`);
 
   console.log(`\n✓ Imported. Visit:  /${tenant.slug}/${event.slug}`);
   console.log(`   directory:        /${tenant.slug}/${event.slug}/merchants`);
