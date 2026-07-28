@@ -69,15 +69,15 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8">
+    <article className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
       <Track name="map_opened" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
       <div className="mb-4 grid gap-1">
         <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
           ← {event.name}
         </Link>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">Event map</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white">Floor plan</h1>
         <p className="text-sm text-white/55">
-          Find booths and merchants. Drag to pan, pinch or scroll to zoom.
+          Explore the stalls, then build a food plan: add stops, pick an entrance, and walk your route.
         </p>
       </div>
 
@@ -88,6 +88,7 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
       ) : (
         <PublicMap
           baseHref={baseHref}
+          eventName={event.name}
           floors={floors}
           booths={booths}
           zones={zones}
