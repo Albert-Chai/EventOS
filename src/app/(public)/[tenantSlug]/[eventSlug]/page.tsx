@@ -73,7 +73,14 @@ export default async function PublicEventPage({ params }: Params) {
   const enableFavourites = settings?.enableFavourites ?? true;
   const enableVouchers = settings?.enableVouchers ?? false;
   const MERCHANT_PREVIEW = 6;
-  const previewMerchants = merchants.slice(0, MERCHANT_PREVIEW);
+  // Show featured stalls first (the section is titled "Featured stalls"), keeping
+  // the alphabetical order within each group — Array.sort is stable.
+  const previewMerchants = [...merchants]
+    .sort(
+      (a, b) =>
+        Number(featured.has(b.participationId)) - Number(featured.has(a.participationId)),
+    )
+    .slice(0, MERCHANT_PREVIEW);
 
   return (
     <article className="mx-auto w-full max-w-2xl pb-24" style={brandStyle(primary)}>
