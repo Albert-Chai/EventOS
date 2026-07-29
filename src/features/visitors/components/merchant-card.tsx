@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { MediaImage } from "@/components/media/media-image";
 import { formatPrice } from "@/features/merchants/format";
+import { cn } from "@/lib/utils";
 
 import { FavouriteButton } from "./favourite-button";
 import { artStyle } from "../theme";
@@ -78,14 +79,20 @@ export function MerchantCard({
             🍜
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
+        {/* pr-7 keeps text clear of the favourite heart pinned at top-right */}
+        <div className={cn("min-w-0 flex-1", showFavourite && "pr-7")}>
+          {/* min-w-0 on the row is what lets `truncate` actually truncate: without
+              it the nowrap title's min-content width props the card open and
+              pushes the whole page sideways on a phone. */}
+          <span className="flex min-w-0 items-center gap-1.5">
             {featured ? (
               <span className="shrink-0 rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-[var(--brand-ink)] uppercase">
                 ★ Featured
               </span>
             ) : null}
-            <span className="text-foreground truncate font-bold tracking-tight">{title}</span>
+            <span className="text-foreground min-w-0 truncate font-bold tracking-tight">
+              {title}
+            </span>
           </span>
           {card.categoryName ? (
             <span className="block text-xs font-semibold text-[var(--brand)]">

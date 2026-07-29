@@ -66,7 +66,7 @@ export default async function FavouritesPage({ params }: Params) {
           </Link>
         </div>
       ) : (
-        <ul className="grid gap-2">
+        <ul className="grid gap-2 [&>li]:min-w-0">
           {cards.map((card) => (
             <li key={card.participationId}>
               <MerchantCard

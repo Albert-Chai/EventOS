@@ -234,7 +234,7 @@ export default async function PublicEventPage({ params }: Params) {
             Stall listings will appear here as they&apos;re approved.
           </p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-3 sm:grid-cols-2 [&>li]:min-w-0">
             {previewMerchants.map((m) => (
               <li key={m.participationId}>
                 <a

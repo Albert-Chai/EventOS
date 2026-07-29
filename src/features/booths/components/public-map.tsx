@@ -56,11 +56,12 @@ type Entrance = { id: string; label: string; short: string; x: number; y: number
 
 // Four schematic gates on the edges — no venue geometry, so routes between them
 // and the stalls are approximate straight lines.
+// Inset from the very edge so the centred pill label isn't clipped at phone width.
 const ENTRANCES: readonly Entrance[] = [
-  { id: "north", label: "North Gate", short: "N", x: 0.5, y: 0.04 },
-  { id: "east", label: "East Gate", short: "E", x: 0.96, y: 0.5 },
-  { id: "south", label: "South Gate", short: "S", x: 0.5, y: 0.96 },
-  { id: "west", label: "West Gate", short: "W", x: 0.04, y: 0.5 },
+  { id: "north", label: "North Gate", short: "N", x: 0.5, y: 0.05 },
+  { id: "east", label: "East Gate", short: "E", x: 0.86, y: 0.5 },
+  { id: "south", label: "South Gate", short: "S", x: 0.5, y: 0.83 },
+  { id: "west", label: "West Gate", short: "W", x: 0.14, y: 0.5 },
 ];
 
 // Zone palette tuned for the light venue ground, used when a zone has no colour
@@ -126,7 +127,9 @@ export function PublicMap({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(true);
+  // Collapsed by default so the map — the reason you're here — leads on a phone.
+  // Selecting a stall opens it; the peek row keeps it discoverable meanwhile.
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Food Plan — an ordered list of booth numbers, an optional entrance, and the
   // current step when walking the route. Seeded from the URL so a shared link
@@ -358,8 +361,9 @@ export function PublicMap({
     }
   }
 
+  // Smaller on a phone so the stack doesn't cover the stalls it sits over.
   const ctrlBtn =
-    "grid size-11 place-items-center rounded-2xl bg-white text-[var(--app-ink)] shadow-md ring-1 ring-black/5 transition-colors hover:bg-[var(--secondary)]";
+    "grid size-9 sm:size-11 place-items-center rounded-xl sm:rounded-2xl bg-white/95 text-[var(--app-ink)] shadow-md ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-[var(--secondary)]";
 
   return (
     <div className="relative">
@@ -371,7 +375,10 @@ export function PublicMap({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
-        className="relative h-[calc(100dvh-8.5rem)] w-full touch-none overflow-hidden bg-[#e8ece4] select-none"
+        /* Fills the gap between the sticky header and the collapsed sheet
+           (header 3.25rem + bottom nav 3.5rem + sheet peek 4rem) so the map is
+           never buried under the sheet on a phone. */
+        className="relative h-[calc(100dvh-10.75rem)] max-h-[46rem] min-h-[19rem] w-full touch-none overflow-hidden bg-[#e8ece4] select-none"
       >
         <div
           style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0" }}
@@ -430,7 +437,7 @@ export function PublicMap({
                 onClick={() => setEntranceId((cur) => (cur === e.id ? null : e.id))}
                 style={{ left: `${e.x * 100}%`, top: `${e.y * 100}%` }}
                 className={cn(
-                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-1 text-[10px] font-bold whitespace-nowrap shadow-sm transition-colors",
+                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-2.5 py-2 text-[10px] font-bold whitespace-nowrap shadow-sm backdrop-blur transition-colors",
                   active
                     ? "border-[var(--brand)] bg-[var(--brand)] text-[var(--brand-ink)]"
                     : "border-black/10 bg-white/95 text-[var(--app-ink)] hover:bg-white",
@@ -547,9 +554,10 @@ export function PublicMap({
           </button>
         </div>
 
-        {/* zone legend / filter — bottom left, above the sheet */}
+        {/* zone legend / filter — one scrollable row so 8+ zones never blanket
+            the map on a phone */}
         {zones.length > 0 ? (
-          <div className="absolute bottom-3 left-3 flex max-w-[70%] flex-wrap gap-1.5">
+          <div className="absolute inset-x-0 bottom-2 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
             {zones.map((z) => {
               const on = zoneFilter === z.id;
               return (
@@ -559,7 +567,7 @@ export function PublicMap({
                   onClick={() => setZoneFilter((cur) => (cur === z.id ? null : z.id))}
                   aria-pressed={on}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ring-1 transition-colors",
+                    "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold shadow-sm ring-1 backdrop-blur transition-colors",
                     on
                       ? "bg-[var(--app-ink)] text-white ring-transparent"
                       : "bg-white/95 text-[var(--app-ink)] ring-black/5 hover:bg-white",
@@ -619,21 +627,35 @@ export function PublicMap({
       {/* ==================================================== BOTTOM SHEET */}
       <section
         className={cn(
-          "fixed inset-x-0 bottom-16 z-30 mx-auto max-w-2xl rounded-t-3xl bg-white shadow-[0_-8px_30px_-12px_#1b1a1959] ring-1 ring-black/5 transition-transform",
-          sheetOpen ? "translate-y-0" : "translate-y-[calc(100%-3.5rem)]",
+          "fixed inset-x-0 bottom-14 z-30 mx-auto max-w-2xl rounded-t-3xl bg-white shadow-[0_-8px_30px_-12px_#1b1a1959] ring-1 ring-black/5 transition-transform",
+          sheetOpen ? "translate-y-0" : "translate-y-[calc(100%-4rem)]",
         )}
       >
+        {/* Peek row — doubles as the collapse handle. Collapsed, it still says
+            what the panel is for (and names the selected stall), so the sheet
+            never reads as a blank bar. */}
         <button
           type="button"
           onClick={() => setSheetOpen((o) => !o)}
           aria-expanded={sheetOpen}
-          className="flex w-full items-center justify-center py-3"
+          className="flex w-full flex-col items-center gap-1 px-4 pt-2.5 pb-2"
           aria-label={sheetOpen ? "Collapse panel" : "Expand panel"}
         >
-          <span className="h-1.5 w-10 rounded-full bg-black/15" aria-hidden />
+          <span className="h-1.5 w-10 shrink-0 rounded-full bg-black/15" aria-hidden />
+          <span className="flex w-full items-center gap-2">
+            <Search className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
+            <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-semibold">
+              {selected
+                ? (selected.listingTitle ?? selected.merchantName ?? `Booth ${selected.boothNumber}`)
+                : "Find a stall or merchant"}
+            </span>
+            <span className="text-muted-foreground shrink-0 text-xs">
+              {sheetOpen ? "Hide" : plan.length ? `Plan · ${plan.length}` : "Open"}
+            </span>
+          </span>
         </button>
 
-        <div className="max-h-[46dvh] overflow-y-auto px-4 pb-5">
+        <div className="max-h-[44dvh] overflow-y-auto px-4 pb-5">
           {searchOpen ? (
             /* ---- search mode ---- */
             <>

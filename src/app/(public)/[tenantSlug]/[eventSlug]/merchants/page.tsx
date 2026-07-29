@@ -113,7 +113,9 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
           </p>
         </div>
       ) : (
-        <ul className="mt-4 grid gap-2">
+        // [&>li]:min-w-0 — grid items default to min-width:auto, so a card's
+        // intrinsic width would otherwise push the page sideways on a phone.
+        <ul className="mt-4 grid gap-2 [&>li]:min-w-0">
           {results.map((card) => (
             <li key={card.participationId}>
               <MerchantCard

@@ -68,7 +68,7 @@ export default async function PublicVouchersPage({ params }: Params) {
           <p className="text-muted-foreground mt-1 text-sm">Check back closer to the event.</p>
         </div>
       ) : (
-        <ul className="grid gap-3">
+        <ul className="grid gap-3 [&>li]:min-w-0">
           {vouchers.map((voucher) => {
             const remaining = remainingQuantity(voucher);
             return (
