@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { safeRedirectPath } from "@/lib/safe-redirect";
+
 /**
  * Refreshes the Supabase session cookie on every request and applies a coarse
  * route guard.
@@ -63,7 +65,12 @@ export async function proxy(request: NextRequest) {
 
   if (user && AUTH_ONLY_ROUTES.includes(pathname)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    // Honour `next` rather than always dumping them on the dashboard. Someone
+    // already signed in who lands here still had a destination in mind — a
+    // visitor tapping "post a moment", say — and throwing it away strands them
+    // somewhere they didn't ask for. Same open-redirect guard as everywhere
+    // else: only a same-origin relative path is ever honoured.
+    url.pathname = safeRedirectPath(request.nextUrl.searchParams.get("next"), "/dashboard");
     url.search = "";
     return NextResponse.redirect(url);
   }

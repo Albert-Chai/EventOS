@@ -37,6 +37,7 @@ import {
   canRemoveComment,
   hasCommentContent,
   hasMomentContent,
+  isMomentId,
   isPubliclyVisible,
   isRatingAddressable,
   isValidRating,
@@ -189,6 +190,10 @@ export async function getMomentDetail(
   postId: string,
   viewerVisitorId: string | null,
 ): Promise<{ post: MomentView; comments: MomentCommentView[] } | null> {
+  // Shape-check before the id reaches Postgres as a uuid: a garbled URL is a
+  // 404, not a driver error surfacing as a 500.
+  if (!isMomentId(postId)) return null;
+
   const event = await findPublicEvent(ref.tenantSlug, ref.eventSlug);
   if (!event) return null;
 

@@ -9,7 +9,7 @@ import { brandStyle } from "@/features/visitors/theme";
 import { getEventBranding } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicFeed } from "@/server/services/moment.service";
-import { getSignedInVisitorForRead } from "@/server/services/visitor-account.service";
+import { getVisitorReader } from "@/server/services/visitor-account.service";
 
 type Params = {
   params: Promise<{ tenantSlug: string; eventSlug: string }>;
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * `.moments` scope in globals.css is what swaps the app's card-on-grey surface
  * for this one, so the rest of the visitor app is untouched.
  *
- * Reading needs no account. `getSignedInVisitorForRead` never mints a cookie or
+ * Reading needs no account. `getVisitorReader` never mints a cookie or
  * a row, so a logged-out visitor browsing the feed still writes nothing.
  *
  * Feed/Grid is a `?view=` param rather than client state: it survives a share,
@@ -49,8 +49,8 @@ export default async function MomentsPage({ params, searchParams }: Params) {
   if (!event) notFound();
 
   // Sequential: the dev/test pooler caps at one connection.
-  const viewer = await getSignedInVisitorForRead();
-  const feed = await listPublicFeed({ tenantSlug, eventSlug }, viewer?.visitor.id ?? null);
+  const viewer = await getVisitorReader();
+  const feed = await listPublicFeed({ tenantSlug, eventSlug }, viewer?.visitorId ?? null);
 
   // Moments off for this event is indistinguishable from "no such page".
   if (!feed) notFound();

@@ -9,7 +9,7 @@ import { getEventBranding, getEventSettings } from "@/server/db/repositories/eve
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
 import { getCurrentUser } from "@/server/auth/session";
-import { getSignedInVisitorForRead } from "@/server/services/visitor-account.service";
+import { getVisitorReader } from "@/server/services/visitor-account.service";
 
 type Params = { params: Promise<{ tenantSlug: string; eventSlug: string }> };
 
@@ -39,7 +39,7 @@ export default async function NewMomentPage({ params }: Params) {
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(here)}`);
 
   // For the byline preview only; posting re-resolves and links the visitor row.
-  const viewer = await getSignedInVisitorForRead();
+  const viewer = await getVisitorReader();
   const authorName = viewer?.displayName ?? user.email.split("@")[0] ?? "You";
 
   const stalls = await listPublicParticipations(event.id);

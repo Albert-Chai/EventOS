@@ -91,28 +91,62 @@ export async function resolveSignedInVisitor(): Promise<VisitorAccount> {
 }
 
 /**
- * Read-only lookup for Server Components — "is this reader signed in, and which
- * visitor are they?". Never mints a cookie or a row, so rendering the feed for a
- * logged-out reader still writes nothing.
+ * What a Server Component needs to know about the reader.
+ *
+ * The two questions are separate and must stay separate:
+ *
+ *  - **Can they act?** That's "are they signed in" — this object exists.
+ *  - **Which rows are theirs?** That's `visitorId`, which is legitimately null
+ *    until they first favourite, claim, post, like, or comment.
+ *
+ * Conflating them is a real bug: a signed-in visitor who hasn't interacted yet
+ * has no `visitors` row, and treating that as "logged out" sends them to
+ * sign-in when they're already signed in.
  */
-export async function getSignedInVisitorForRead(): Promise<VisitorAccount | null> {
+export type VisitorReader = {
+  userId: string;
+  displayName: string;
+  /** Null until the lazy `visitors` row is materialised by a first action. */
+  visitorId: string | null;
+};
+
+/**
+ * Read-only lookup for Server Components. Never mints a cookie or a row, so
+ * rendering the feed for a logged-out reader still writes nothing — and
+ * rendering it for a signed-in one who has never interacted writes nothing
+ * either, while still reporting them as signed in.
+ */
+export async function getVisitorReader(): Promise<VisitorReader | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
   const byUser = await findVisitorByUserId(user.id);
   if (byUser) {
-    return { visitor: byUser, userId: user.id, displayName: nameFor(byUser.displayName, user.email) };
+    return {
+      userId: user.id,
+      displayName: nameFor(byUser.displayName, user.email),
+      visitorId: byUser.id,
+    };
   }
 
-  // Signed in but never posted/favourited: known account, no visitor row yet.
+  // Signed in with an unclaimed cookie row — theirs in all but the link, which
+  // the first write will make. Their favourites already live on it.
   const anonymousId = await readAnonymousId();
   const cookieVisitor = anonymousId ? await findVisitorByAnonymousId(anonymousId) : null;
   if (cookieVisitor && !cookieVisitor.userId) {
     return {
-      visitor: cookieVisitor,
       userId: user.id,
       displayName: nameFor(cookieVisitor.displayName, user.email),
+      visitorId: cookieVisitor.id,
     };
   }
-  return null;
+
+  // Signed in, no visitor row at all. Still a reader who can post and like —
+  // `resolveSignedInVisitor` creates the row when they do.
+  const profile = await findProfileById(user.id);
+  return {
+    userId: user.id,
+    displayName: nameFor(profile?.displayName ?? null, user.email),
+    visitorId: null,
+  };
 }

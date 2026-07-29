@@ -12,6 +12,7 @@ import {
   canRemoveComment,
   hasCommentContent,
   hasMomentContent,
+  isMomentId,
   isMomentStatus,
   isPubliclyVisible,
   isRatingAddressable,
@@ -172,6 +173,29 @@ describe("createMomentSchema", () => {
   it("has no field a client could use to choose a tenant", () => {
     const parsed = createMomentSchema.parse({ ...base, tenantId: "someone-elses-tenant" });
     expect(parsed).not.toHaveProperty("tenantId");
+  });
+});
+
+describe("isMomentId", () => {
+  it("accepts a uuid in either case", () => {
+    expect(isMomentId("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed")).toBe(true);
+    expect(isMomentId("1B9D6BCD-BBFD-4B2D-9B5D-AB8DFBBD4BED")).toBe(true);
+  });
+
+  it("rejects anything a garbled URL could carry", () => {
+    // Each of these reached Postgres as a `uuid` before the guard and came back
+    // as a 500 — which also tells a prober their input hit the database.
+    for (const bad of [
+      "new",
+      "abc",
+      "",
+      "1b9d6bcd-bbfd-4b2d-9b5d",
+      "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bedX",
+      "1' or '1",
+      "../../etc/passwd",
+    ]) {
+      expect(isMomentId(bad)).toBe(false);
+    }
   });
 });
 

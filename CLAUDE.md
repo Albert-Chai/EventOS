@@ -266,6 +266,15 @@ by a future code path and a constraint cannot. (`btrim()` trims spaces only; the
 Visitor photos count against the organizer's storage limit and are uploaded
 before the insert, since a photo-only post has no other content.
 
+**"Signed in" and "has a `visitors` row" are different questions.** The row is
+lazy — a signed-in visitor who hasn't yet favourited, posted, liked, or commented
+has none. `getVisitorReader()` returns a reader for *any* signed-in user with a
+nullable `visitorId`; gate **actions** on the reader existing and **ownership**
+on `visitorId`. Conflating them sent already-authenticated visitors to
+`/sign-in`. Relatedly, `proxy.ts` now honours `next` when bouncing a signed-in
+user off an auth-only route instead of always landing them on `/dashboard`
+(still through `safeRedirectPath`).
+
 **Likes & comments.** `moment_likes` is append/delete only; its
 `unique(moment_post_id, visitor_id)` is what keeps the count honest under a
 double-tap — never replace the `onConflictDoNothing` with a read-then-write.

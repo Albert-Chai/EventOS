@@ -10,7 +10,7 @@ import { brandStyle } from "@/features/visitors/theme";
 import { getEventBranding } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { getMomentDetail } from "@/server/services/moment.service";
-import { getSignedInVisitorForRead } from "@/server/services/visitor-account.service";
+import { getVisitorReader } from "@/server/services/visitor-account.service";
 
 type Params = {
   params: Promise<{ tenantSlug: string; eventSlug: string; postId: string }>;
@@ -41,8 +41,8 @@ export default async function MomentDetailPage({ params }: Params) {
   if (!event) notFound();
 
   // Sequential: the dev/test pooler caps at one connection.
-  const viewer = await getSignedInVisitorForRead();
-  const detail = await getMomentDetail({ tenantSlug, eventSlug }, postId, viewer?.visitor.id ?? null);
+  const viewer = await getVisitorReader();
+  const detail = await getMomentDetail({ tenantSlug, eventSlug }, postId, viewer?.visitorId ?? null);
   if (!detail) notFound();
 
   const branding = await getEventBranding(event.tenantId, event.id);
