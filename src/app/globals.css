@@ -241,6 +241,70 @@
     color: color-mix(in srgb, var(--brand) 85%, #000);
     border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
   }
+  /* ---------------------------------------------------------------------
+     Moments — a photo-feed surface.
+
+     The rest of the visitor app is cards floating on a soft grey ground. A
+     photo feed wants the opposite: a white page, full-bleed media, and hairline
+     rules instead of gaps and shadows, so nothing competes with the photos.
+     Scoped to `.moments` so it changes only this tab; `--brand` still comes from
+     the event, so a feed reads as *this* festival's, not a generic one.
+
+     The greys below are the feed's own scale, deliberately cooler and higher
+     contrast than `--app-line`/`--app-muted`: a photo surface needs its
+     separators to disappear and its metadata to stay legible over white. */
+  .moments {
+    --feed-line: #dbdbdb;
+    --feed-muted: #737373;
+    --feed-ink: #000000;
+
+    background: #ffffff;
+    color: var(--feed-ink);
+  }
+  /* The story-ring around an author avatar, in the event's colour. */
+  .moment-avatar {
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--brand-ink);
+    font-weight: 700;
+    background: linear-gradient(
+      135deg,
+      var(--brand),
+      color-mix(in srgb, var(--brand) 55%, #ff8a3d)
+    );
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px color-mix(in srgb, var(--brand) 45%, transparent);
+  }
+  /* Ground for a text-only post — keeps the feed's rhythm without a photo. */
+  .moment-quote {
+    background: linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--brand) 10%, #ffffff),
+      color-mix(in srgb, var(--brand) 3%, #ffffff)
+    );
+    border-top: 1px solid color-mix(in srgb, var(--brand) 14%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--brand) 14%, transparent);
+  }
+  /* Segmented Feed / Grid control, IG's profile tabs. */
+  .moment-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex: 1;
+    padding: 0.7rem 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--feed-muted);
+    border-top: 1px solid transparent;
+  }
+  .moment-tab[data-active="true"] {
+    color: var(--feed-ink);
+    border-top-color: var(--feed-ink);
+  }
+
   /* Colourful art tile for a card with no photo — hue set inline per merchant. */
   .app-art {
     display: grid;

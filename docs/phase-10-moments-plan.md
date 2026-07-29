@@ -155,6 +155,30 @@ Two names added to the §25 taxonomy:
 The composer is a full page rather than an inline box: on a phone, a photo
 picker plus stall search plus rating needs the room.
 
+### The feed's own surface
+
+The rest of the visitor app is cards floating on a soft grey ground. A photo
+feed wants the opposite — white page, full-bleed media, hairline rules — so
+nothing competes with the pictures. That's the `.moments` scope in `globals.css`:
+its own greys (`--feed-line`, `--feed-muted`, `--feed-ink`), cooler and higher
+contrast than the app's, because separators on a photo surface should disappear
+while metadata over white stays legible. `--brand` still comes from the event, so
+a feed reads as *this* festival's.
+
+Post anatomy, in reading order: who posted → the tagged stall as the location
+line → media at full bleed, cropped to 4:5 so the column doesn't jump between
+posts → the rating → `**name** caption` → timestamp. A text-only post gets a
+typographic frame of the same weight rather than a bare paragraph, so it holds
+its place in the rhythm.
+
+Feed/Grid is a `?view=` param, not client state: it survives a share, a refresh,
+and the back button, and costs no JavaScript. The author's overflow menu is a
+`<details>`, so it opens and submits without hydration.
+
+**Not built, on purpose:** likes, comments, and follows — the product decision
+was a feed, not a social network. The rating is the engagement signal, and it's
+the one that's useful to an organiser.
+
 ## 8. Out of scope, deliberately
 
 Likes, comments, follows, and post notifications. Reporting/flagging by
