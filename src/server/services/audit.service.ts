@@ -73,6 +73,8 @@ export const AUDIT_ACTIONS = {
   CAMPAIGN_UPDATED: "campaign.updated",
   CAMPAIGN_SCHEDULED: "campaign.scheduled",
   CAMPAIGN_SENT: "campaign.sent",
+  MOMENT_HIDDEN: "moment.hidden",
+  MOMENT_RESTORED: "moment.restored",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];

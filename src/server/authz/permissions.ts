@@ -46,6 +46,7 @@ export const PERMISSIONS = [
   "voucher.manage",
   "voucher.redeem",
   "campaign.manage",
+  "moment.moderate",
 
   // Cross-cutting
   "analytics.view",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Home, Map as MapIcon, Store, Ticket } from "lucide-react";
+import { Camera, Heart, Home, Map as MapIcon, Store, Ticket } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,11 +8,23 @@ import { cn } from "@/lib/utils";
 
 /**
  * The visitor app-shell bottom tab bar. Client-side so it can derive the event
- * base (`/{tenant}/{event}`) from the path and highlight the active tab. Renders
- * nothing off an event route (e.g. the tenant index), where there's no event to
- * navigate within.
+ * base (`/{tenant}/{event}`) from the path and highlight the active tab.
+ *
+ * Which tabs exist is decided by the `[eventSlug]` layout from the event's
+ * settings — a tab that would land on a 404 is never rendered, and dropping the
+ * unused ones is what keeps six candidates fitting at 390px.
  */
-export function BottomNav() {
+export function BottomNav({
+  showMap = true,
+  showVouchers = false,
+  showMoments = false,
+  showFavourites = true,
+}: {
+  showMap?: boolean;
+  showVouchers?: boolean;
+  showMoments?: boolean;
+  showFavourites?: boolean;
+}) {
   const pathname = usePathname();
   const seg = pathname.split("/").filter(Boolean);
   if (seg.length < 2) return null;
@@ -21,31 +33,52 @@ export function BottomNav() {
   const rest = pathname.slice(base.length); // "", "/merchants", "/map", …
   const third = seg[2];
 
+  const reserved = ["map", "vouchers", "favourites", "moments", "merchants"];
+
   const tabs = [
-    { href: base, label: "Home", icon: Home, active: rest === "" },
+    { key: "home", href: base, label: "Home", icon: Home, active: rest === "", show: true },
     {
+      key: "stalls",
       href: `${base}/merchants`,
       label: "Stalls",
       icon: Store,
       // the directory, plus a merchant detail page (/{tenant}/{event}/{slug})
-      active:
-        rest.startsWith("/merchants") ||
-        (seg.length === 3 && !["map", "vouchers", "favourites"].includes(third)),
+      active: rest.startsWith("/merchants") || (seg.length === 3 && !reserved.includes(third)),
+      show: true,
     },
-    { href: `${base}/map`, label: "Floor plan", icon: MapIcon, active: rest.startsWith("/map") },
     {
+      key: "map",
+      href: `${base}/map`,
+      label: "Floor plan",
+      icon: MapIcon,
+      active: rest.startsWith("/map"),
+      show: showMap,
+    },
+    {
+      key: "moments",
+      href: `${base}/moments`,
+      label: "Moments",
+      icon: Camera,
+      active: rest.startsWith("/moments"),
+      show: showMoments,
+    },
+    {
+      key: "vouchers",
       href: `${base}/vouchers`,
       label: "Vouchers",
       icon: Ticket,
       active: rest.startsWith("/vouchers"),
+      show: showVouchers,
     },
     {
+      key: "saved",
       href: `${base}/favourites`,
       label: "Saved",
       icon: Heart,
       active: rest.startsWith("/favourites"),
+      show: showFavourites,
     },
-  ];
+  ].filter((t) => t.show);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--app-line)] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
@@ -54,18 +87,19 @@ export function BottomNav() {
           const Icon = t.icon;
           return (
             <Link
-              key={t.label}
+              key={t.key}
               href={t.href}
               aria-current={t.active ? "page" : undefined}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-colors",
+                // min-w-0 so a six-tab bar shrinks instead of widening the page
+                "flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2 text-[10px] font-semibold transition-colors",
                 t.active
                   ? "text-[var(--brand)]"
                   : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
               )}
             >
-              <Icon className="size-5" aria-hidden />
-              {t.label}
+              <Icon className="size-5 shrink-0" aria-hidden />
+              <span className="w-full truncate text-center">{t.label}</span>
             </Link>
           );
         })}

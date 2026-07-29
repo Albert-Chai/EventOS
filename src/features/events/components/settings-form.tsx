@@ -18,6 +18,10 @@ const META: Record<EventSettingKey, { label: string; hint: string }> = {
   enableReviews: { label: "Reviews", hint: "Allow visitor reviews (arrives in Phase 5)." },
   enableVouchers: { label: "Vouchers", hint: "Enable voucher campaigns (Phase 8)." },
   enableSponsors: { label: "Sponsors", hint: "Show sponsor placements on the event." },
+  enableMoments: {
+    label: "Moments",
+    hint: "Let signed-in visitors post photos and reviews to a public feed.",
+  },
   enablePassport: { label: "Passport", hint: "Enable a collect-stamps visitor passport." },
   enableMaps: { label: "Interactive map", hint: "Show the booth map (Phase 4)." },
   enableMerchantSelfRegistration: {

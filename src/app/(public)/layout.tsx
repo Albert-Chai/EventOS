@@ -1,6 +1,5 @@
 import { env } from "@/config/env";
 import { AppHeader } from "@/features/visitors/components/app-header";
-import { BottomNav } from "@/features/visitors/components/bottom-nav";
 import { InstallPrompt } from "@/features/pwa/components/install-prompt";
 import { ServiceWorkerRegister } from "@/features/pwa/components/service-worker-register";
 
@@ -15,13 +14,16 @@ import { ServiceWorkerRegister } from "@/features/pwa/components/service-worker-
  *
  * `.appshell` scopes the light theme (globals.css) to the whole visitor tree so
  * the dashboard/admin keep the default surfaces.
+ *
+ * The bottom tab bar lives one level down, in the `[eventSlug]` layout: which
+ * tabs exist depends on which features the event has switched on, and only that
+ * layout knows the event.
  */
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="appshell flex min-h-dvh flex-col">
       <AppHeader appName={env.NEXT_PUBLIC_APP_NAME} />
       <main className="flex-1 pb-24">{children}</main>
-      <BottomNav />
       <ServiceWorkerRegister />
       <InstallPrompt />
     </div>

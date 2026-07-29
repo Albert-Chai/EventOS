@@ -53,6 +53,7 @@ export default async function EventOverviewPage({
   const canManageVouchers = ctx.permissions.has("voucher.manage");
   const canManageCampaigns = ctx.permissions.has("campaign.manage");
   const canManageSponsors = ctx.permissions.has("sponsor.manage");
+  const canModerateMoments = ctx.permissions.has("moment.moderate");
   const canManageBooths = ctx.permissions.has("booth.manage");
   const canManageMap = ctx.permissions.has("map.manage");
   const mapUploaded = floors.some((f) => f.imageFileId);
@@ -234,6 +235,14 @@ export default async function EventOverviewPage({
                     className={buttonVariants({ variant: "outline", size: "sm" })}
                   >
                     Sponsors
+                  </Link>
+                ) : null}
+                {canModerateMoments ? (
+                  <Link
+                    href={`/dashboard/events/${event.id}/moments`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Moments
                   </Link>
                 ) : null}
               </CardContent>

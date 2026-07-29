@@ -30,6 +30,7 @@ export const eventSettings = pgTable(
     enableReviews: boolean("enable_reviews").notNull().default(false),
     enableVouchers: boolean("enable_vouchers").notNull().default(false),
     enableSponsors: boolean("enable_sponsors").notNull().default(false),
+    enableMoments: boolean("enable_moments").notNull().default(false),
     enablePassport: boolean("enable_passport").notNull().default(false),
     enableMaps: boolean("enable_maps").notNull().default(true),
     enableMerchantSelfRegistration: boolean("enable_merchant_self_registration")
@@ -59,6 +60,7 @@ export const EVENT_SETTING_KEYS = [
   "enableReviews",
   "enableVouchers",
   "enableSponsors",
+  "enableMoments",
   "enablePassport",
   "enableMaps",
   "enableMerchantSelfRegistration",

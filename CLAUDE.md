@@ -4,7 +4,10 @@ Read `EventOS_PROJECT.md` for the product specification. This file is the
 engineering contract: the rules that are expensive to rediscover and dangerous
 to violate.
 
-Current state: **Phase 8 complete** — the §34 build phases (0–8) are all done. Vouchers & campaigns shipped last: claimable vouchers with per-claim codes, merchant redemption, and simulated-delivery campaigns with reporting.
+Current state: **Phase 10 complete** — the §34 build phases (0–8) are all done, plus two
+post-spec phases: **9, sponsor ad space** (bookings, flights, weighted rotation, viewable
+impressions, click redirect, reporting) and **10, Moments** (visitor accounts + a
+post feed with organiser moderation).
 
 ---
 
@@ -238,8 +241,34 @@ any external scheduler holding the token. A durable job/queue table is still not
 warranted — add one only when a job needs retries or fan-out a cron sweep can't
 express.
 
+**Moments & visitor accounts (Phase 10):** there is exactly **one identity pool**,
+`auth.users` — a "visitor account" is just an account with no tenant membership,
+so visitor sign-in reuses the existing audited auth actions with `?next=` back
+into the event. Never build a second auth path. The link is
+`visitors.user_id`, written only by `resolveSignedInVisitor()`
+(`visitor-account.service.ts`), which resolves **by `user_id` first** — the
+account is the identity, so a second device with a different cookie must not fork
+it (`visitors_user_id_uq`, a partial unique index, makes that a DB guarantee).
+Anonymous browsing still writes nothing; posting is now a third path (with
+favourite + voucher claim) that materialises a `visitors` row.
+
+Posting is public-write and follows the §1 rule-6 seam: tenant + event come from
+`findPublicEvent`, the author from the session, and `moment_posts.tenant_id` from
+the resolved event — never the form. Moments are **post-moderated**: posts go
+live immediately, `moment.moderate` hides them, and hide/restore are audited
+(`moment.hidden` / `moment.restored`) with who/when/why on the row. An author's
+own `deleted` is theirs — an organiser cannot restore it. A disabled feed
+(`enable_moments` off) **404s**, like a draft event. Three CHECK constraints carry
+the content rules — rating 1–5, a rating requires a tagged stall, and a post needs
+a non-blank body **or** an image — because the service's validation can be bypassed
+by a future code path and a constraint cannot. (`btrim()` trims spaces only; the
+"non-blank" check uses `~ '[^[:space:]]'` after 0021 shipped with that hole.)
+Visitor photos count against the organizer's storage limit and are uploaded
+before the insert, since a photo-only post has no other content.
+
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
-Supabase's built-in auth limits apply in the meantime.
+Supabase's built-in auth limits apply in the meantime. That gap matters more now
+that Moments accepts visitor-generated content.
 
 ---
 

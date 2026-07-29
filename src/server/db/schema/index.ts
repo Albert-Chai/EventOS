@@ -62,3 +62,4 @@ export * from "./campaign-messages";
 export * from "./notification-deliveries";
 export * from "./sponsors";
 export * from "./ad-bookings";
+export * from "./moment-posts";

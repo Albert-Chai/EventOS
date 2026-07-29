@@ -1,0 +1,162 @@
+# Phase 10 — Moments (visitor posts) + visitor accounts
+
+Visitors share what they ate and saw at an event: a photo, a caption, the stall
+it came from, and a star rating. The feed is its own tab in the visitor app.
+
+Scope decided with the product owner:
+
+| Question              | Decision                                                          |
+| --------------------- | ----------------------------------------------------------------- |
+| Auth                  | **Sign in to post, browse freely** — reading needs no account      |
+| Moderation            | **Live immediately**, organiser can hide (post-moderation)         |
+| Post contents         | Photo + caption, tag a stall, 1–5 star rating, **text-only is ok** |
+| Placement             | **Its own bottom-nav tab** — no stall-page strip, no landing strip |
+| Explicitly out        | Likes, comments, follows, notifications                            |
+
+---
+
+## 1. Visitor accounts — the seam
+
+There is exactly **one identity pool**: `auth.users`. An organizer and a visitor
+are the same kind of account; what differs is what they're a member of. A
+visitor simply has no `tenant_members` row, so they have no dashboard — nothing
+new to secure.
+
+The visitor-facing surface is `visitors`, which already carried a nullable
+`user_id` reserved for precisely this (see the comment block in
+`schema/visitors.ts`). Linking is the whole feature:
+
+```
+anonymous browsing           →  cookie only, no DB row          (unchanged)
+favourite / claim a voucher  →  visitors row, user_id NULL      (unchanged)
+sign in                      →  visitors row, user_id = auth uid   (new)
+```
+
+`resolveSignedInVisitor()` (`services/visitor-account.service.ts`) is the only
+writer of that link:
+
+1. Look the visitor up **by `user_id`** first. This is what makes the account
+   portable — signing in on a second device finds the same row rather than
+   forking a new identity per cookie.
+2. Otherwise adopt the cookie's visitor row and set `user_id` on it, carrying
+   the display name and email across from `profiles`. An anonymous visitor who
+   signs up keeps their favourites.
+3. Otherwise create a row for the account.
+
+A partial unique index on `visitors(user_id) WHERE user_id IS NOT NULL` makes
+"one visitor per account" a database guarantee, not a convention.
+
+**Reuse, don't rebuild.** Visitor sign-in goes through the existing audited auth
+actions at `/sign-in` and `/sign-up`, with `?next=` pointing back into the event.
+No second auth implementation, no second password path, no new open-redirect
+surface — `safeRedirectPath` already governs `next`.
+
+Known, accepted limitation: a second device's *anonymous* favourites are not
+merged on sign-in. Merging two anonymous histories is a distinct feature with
+its own conflict rules; forking identity silently would be worse.
+
+## 2. Data model — `moment_posts`
+
+Tenant-scoped like every other table (`tenant_id`, `created_at`, `updated_at`,
+`set_updated_at` trigger, `REVOKE ALL … FROM anon, authenticated`).
+
+| Column             | Notes                                                    |
+| ------------------ | -------------------------------------------------------- |
+| `event_id`         | the post always belongs to one event                     |
+| `visitor_id`       | the author; ownership checks compare against this         |
+| `author_user_id`   | cross-schema FK to `auth.users`, `ON DELETE SET NULL`     |
+| `participation_id` | the tagged stall, nullable, `ON DELETE SET NULL`          |
+| `image_file_id`    | nullable — text-only posts are allowed                    |
+| `body`             | nullable caption, ≤ 500 chars                             |
+| `rating`           | nullable `smallint`, 1–5                                  |
+| `status`           | `published` \| `hidden` \| `deleted`                      |
+| `hidden_*`         | who hid it, when, and why — moderation is accountable     |
+
+Three CHECK constraints carry rules the UI must never be the only enforcer of:
+
+- `rating BETWEEN 1 AND 5`
+- `rating IS NULL OR participation_id IS NOT NULL` — a rating is *about a stall*;
+  a star floating free of a subject is meaningless data.
+- a post has a non-blank body **or** an image. "Text-only allowed" is not "empty
+  allowed".
+
+`status` is `text` + a TS union, per the §12 convention (statuses grow; altering
+a Postgres enum in place does not).
+
+### The pure ↔ SQL split
+
+`server/moments/status.ts` holds `isPubliclyVisible(status)`; the repository
+holds `visiblePredicate()`. Same rule, two forms, unit-tested together — the
+same shape as `eventPhase ↔ phaseExpr` and `isBookingLive ↔ livePredicate`.
+
+## 3. Authorization
+
+- **Posting** requires a signed-in user, and the post is written against *their*
+  visitor row — `visitor_id` is derived server-side, never submitted.
+- **Deleting your own post** compares `post.visitor_id` to the caller's resolved
+  visitor id. A visitor cannot address another visitor's post.
+- **Hiding** is an organiser action behind a new permission, `moment.moderate`
+  (owner, event manager, marketing). Permissions stay code, not data.
+- Both hide and restore are **audited** (`moment.hidden`, `moment.restored`).
+  Visitor posting is not audited — §23 is for actor state-changes on the
+  organizer's own data, not visitor content; the analytics log covers volume.
+
+## 4. Feature gating
+
+A new per-event toggle, `enable_moments` (default **off**). A disabled feed
+**404s** rather than explaining itself — the same rule vouchers follow, so a
+disabled surface is indistinguishable from a nonexistent one.
+
+The bottom-nav tab is likewise conditional: tabs render only for features the
+event actually has turned on, which also keeps the bar from overflowing at
+390px now that there are six candidates.
+
+## 5. Media
+
+Images go through the existing `uploadImage` seam with a **server-constructed**
+scope, `events/{eventId}/moments`, owned by the post id. The client never
+influences the object path (§6), and the `files` row is written through the
+repository with a scoped `tenant_id` like every other upload.
+
+Because a visitor is not a `TenantScopedContext`, `uploadImage` is called with
+the request context plus the event's own `tenant_id` — derived from
+`findPublicEvent`, never a client value. This is the same public-write seam as a
+voucher claim, documented at the call site.
+
+Two consequences worth stating plainly rather than discovering later:
+
+- **Visitor photos count against the organizer's storage limit** (§22). That is
+  the honest accounting — the bytes are in their bucket — but it means a busy
+  feed can push a workspace toward its cap. If that becomes a real problem the
+  fix is a separate `moment_photo` metric, not silently free storage.
+- The `files` row is audited as `file.uploaded` **against the event's tenant**,
+  with the visitor as actor. Posting itself is not audited; the upload is,
+  because it consumes the organizer's quota.
+
+A photo-only post uploads **before** the insert: it has no other content, so a
+two-step write would trip `moment_posts_has_content_ck`.
+
+## 6. Analytics
+
+Two names added to the §25 taxonomy:
+
+- `moment_feed_viewed` — a view-type event, so it joins `CLIENT_TRACKABLE`.
+- `moment_posted` — state-changing, emitted **server-side only** inside
+  `createMomentPost`, so the public beacon cannot forge it.
+
+## 7. Surfaces
+
+| Route                                       | Who        |
+| ------------------------------------------- | ---------- |
+| `/{tenant}/{event}/moments`                 | anyone     |
+| `/{tenant}/{event}/moments/new`             | signed in  |
+| `/dashboard/events/{id}/moments`            | moderators |
+
+The composer is a full page rather than an inline box: on a phone, a photo
+picker plus stall search plus rating needs the room.
+
+## 8. Out of scope, deliberately
+
+Likes, comments, follows, and post notifications. Reporting/flagging by
+visitors — organiser moderation is the moderation story for now. Feeds across
+events. Video.
