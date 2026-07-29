@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdSlot } from "@/features/ads/components/ad-slot";
 import { Track } from "@/features/analytics/components/track";
 import { ClaimButton } from "@/features/vouchers/components/claim-button";
 import { brandStyle } from "@/features/visitors/theme";
@@ -61,6 +62,13 @@ export default async function PublicVouchersPage({ params }: Params) {
           </Link>
         </div>
       </div>
+
+      <AdSlot
+        slot="vouchers"
+        tenantSlug={tenantSlug}
+        eventSlug={eventSlug}
+        className="mb-4"
+      />
 
       {vouchers.length === 0 ? (
         <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">

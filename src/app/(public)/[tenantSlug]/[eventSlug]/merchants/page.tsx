@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdSlot } from "@/features/ads/components/ad-slot";
 import { Track } from "@/features/analytics/components/track";
 import { FilterBar } from "@/features/visitors/components/filter-bar";
 import { MerchantCard } from "@/features/visitors/components/merchant-card";
@@ -96,6 +97,13 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         <SearchBar />
         <FilterBar facets={facets} />
       </div>
+
+      <AdSlot
+        slot="directory_inline"
+        tenantSlug={tenantSlug}
+        eventSlug={eventSlug}
+        className="mt-4"
+      />
 
       <p className="text-muted-foreground mt-4 text-sm" aria-live="polite">
         <span className="font-bold text-[var(--brand)]">{results.length}</span>{" "}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdSlot } from "@/features/ads/components/ad-slot";
 import { Track } from "@/features/analytics/components/track";
 import { RecentlyViewed } from "@/features/visitors/components/recently-viewed";
 import { artStyle, brandStyle } from "@/features/visitors/theme";
@@ -136,6 +137,8 @@ export default async function PublicEventPage({ params }: Params) {
           </div>
         ) : null}
       </header>
+
+      <AdSlot slot="event_landing" tenantSlug={tenantSlug} eventSlug={eventSlug} />
 
       {/* Quick nav — the secondary destinations. */}
       {hasMap || enableFavourites ? (

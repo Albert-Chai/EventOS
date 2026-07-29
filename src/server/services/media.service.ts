@@ -25,7 +25,7 @@ import { assertWithinLimit } from "./usage.service";
 
 /** What a file is attached to — used for the `files.kind` column and audit. */
 export type FileKind =
-  "map_floor" | "merchant_logo" | "merchant_cover" | "listing_item" | "event_logo" | "event_cover";
+  "map_floor" | "merchant_logo" | "merchant_cover" | "listing_item" | "event_logo" | "event_cover" | "ad_creative";
 
 type UploadInput = {
   tenantId: string;

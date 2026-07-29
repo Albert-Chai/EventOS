@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdSlot } from "@/features/ads/components/ad-slot";
 import { Track } from "@/features/analytics/components/track";
 import { PublicMap } from "@/features/booths/components/public-map";
 import { brandStyle } from "@/features/visitors/theme";
@@ -102,6 +103,14 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
           booths={booths}
           zones={zones}
           initialBooth={booth}
+          adSlot={
+            <AdSlot
+              slot="floor_plan"
+              tenantSlug={tenantSlug}
+              eventSlug={eventSlug}
+              className="mt-3"
+            />
+          }
         />
       )}
     </article>

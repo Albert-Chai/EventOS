@@ -127,6 +127,20 @@
       "when": 1785113615703,
       "tag": "0017_vouchers_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785297408174,
+      "tag": "0018_eager_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785297409174,
+      "tag": "0019_sponsor_ads_constraints",
+      "breakpoints": true
     }
   ]
 }

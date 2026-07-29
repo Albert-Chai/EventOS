@@ -60,3 +60,5 @@ export * from "./campaigns";
 export * from "./campaign-audiences";
 export * from "./campaign-messages";
 export * from "./notification-deliveries";
+export * from "./sponsors";
+export * from "./ad-bookings";

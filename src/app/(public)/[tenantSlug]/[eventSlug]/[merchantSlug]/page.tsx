@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MediaImage } from "@/components/media/media-image";
+import { AdSlot } from "@/features/ads/components/ad-slot";
 import { Track } from "@/features/analytics/components/track";
 import { formatPrice } from "@/features/merchants/format";
 import { FavouriteButton } from "@/features/visitors/components/favourite-button";
@@ -244,6 +245,12 @@ export default async function PublicMerchantPage({ params }: Params) {
             ))}
           </ul>
         )}
+        <AdSlot
+          slot="merchant_detail"
+          tenantSlug={tenantSlug}
+          eventSlug={eventSlug}
+          className="mt-8"
+        />
       </div>
     </article>
   );

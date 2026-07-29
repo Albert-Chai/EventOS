@@ -89,6 +89,7 @@ export function PublicMap({
   booths,
   zones,
   initialBooth,
+  adSlot,
 }: {
   baseHref: string;
   eventName: string;
@@ -97,6 +98,8 @@ export function PublicMap({
   booths: PublicMapBooth[];
   zones: PublicMapZone[];
   initialBooth?: string;
+  /** Server-rendered sponsor slot, passed in because this component is client-side. */
+  adSlot?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -812,6 +815,7 @@ export function PublicMap({
               >
                 <Search className="size-4" aria-hidden /> Search merchants or stalls
               </button>
+              {adSlot}
               <PlanPanel
                 plan={plan}
                 planBooths={planBooths}

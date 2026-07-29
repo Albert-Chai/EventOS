@@ -1,4 +1,4 @@
-import { and, count, countDistinct, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -263,4 +263,31 @@ export async function platformEventsPerTenant(): Promise<TenantEngagement[]> {
     .leftJoin(tenants, eq(tenants.id, analyticsEvents.tenantId))
     .groupBy(analyticsEvents.tenantId, tenants.name)
     .orderBy(desc(count()));
+}
+
+/**
+ * Impressions + clicks per ad booking for one event, read **live from the raw
+ * log** (Phase 7's rule: the report matches `analytics_events` by construction
+ * rather than drifting from a denormalized counter). Grouped on the booking id
+ * inside `props`, which is where the ad seam records attribution.
+ */
+export async function adPerformanceForEvent(
+  eventId: string,
+): Promise<Array<{ bookingId: string; impressions: number; clicks: number }>> {
+  const rows = await db
+    .select({
+      bookingId: sql<string>`${analyticsEvents.props} ->> 'bookingId'`,
+      impressions: sql<number>`count(*) filter (where ${analyticsEvents.name} = 'ad_impression')::int`,
+      clicks: sql<number>`count(*) filter (where ${analyticsEvents.name} = 'ad_click')::int`,
+    })
+    .from(analyticsEvents)
+    .where(
+      and(
+        eq(analyticsEvents.eventId, eventId),
+        inArray(analyticsEvents.name, ["ad_impression", "ad_click"]),
+      ),
+    )
+    .groupBy(sql`${analyticsEvents.props} ->> 'bookingId'`);
+
+  return rows.filter((r) => Boolean(r.bookingId));
 }

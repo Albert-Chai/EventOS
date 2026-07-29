@@ -31,6 +31,8 @@ export const ANALYTICS_EVENTS = [
   "visitor_registered",
   "pwa_installed",
   "notification_opened",
+  "ad_impression",
+  "ad_click",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
