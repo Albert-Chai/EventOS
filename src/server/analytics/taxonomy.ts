@@ -35,6 +35,8 @@ export const ANALYTICS_EVENTS = [
   "ad_click",
   "moment_feed_viewed",
   "moment_posted",
+  "moment_liked",
+  "moment_commented",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
@@ -50,11 +52,11 @@ export function isAnalyticsEvent(value: string): value is AnalyticsEventName {
  *
  * Every entry is a **view-type** event. The state-changing ones —
  * `merchant_favourited`, `qr_scanned`, `voucher_claimed`, `voucher_redeemed`,
- * `moment_posted` — only ever originate server-side (inside `setFavourite`, the
- * `/q` redirect, and the voucher-claim/redeem and moment services), so the
- * beacon can never forge them. An attacker replaying the public action can still
- * only inflate view counts, never fabricate a favourite, a scan, a voucher
- * claim, or a post.
+ * `moment_posted`, `moment_liked`, `moment_commented` — only ever originate
+ * server-side (inside `setFavourite`, the `/q` redirect, and the
+ * voucher-claim/redeem and moment services), so the beacon can never forge them.
+ * An attacker replaying the public action can still only inflate view counts,
+ * never fabricate a favourite, a scan, a voucher claim, a post, or a like.
  */
 export const CLIENT_TRACKABLE = [
   "event_viewed",

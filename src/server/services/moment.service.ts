@@ -7,6 +7,7 @@ import {
   countPublishedPostsForEvent,
   deleteOwnMomentPost,
   findMomentPostById,
+  findPublishedPostForFeed,
   listPostsForModeration,
   listPublishedPostsForEvent,
   insertMomentPost,
@@ -17,10 +18,30 @@ import {
 } from "@/server/db/repositories/moment-posts.repository";
 import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
 import {
+  countLikesForPost,
+  countsForPosts,
+  deleteLike,
+  findCommentById,
+  insertComment,
+  insertLike,
+  latestCommentsForPosts,
+  listCommentsForModeration,
+  listPublishedComments,
+  markCommentDeleted,
+  setCommentStatus,
+  type CommentModerationRow,
+  type CommentRow,
+  type MomentCounts,
+} from "@/server/db/repositories/moment-social.repository";
+import {
+  canRemoveComment,
+  hasCommentContent,
   hasMomentContent,
+  isPubliclyVisible,
   isRatingAddressable,
   isValidRating,
   MOMENT_BODY_MAX,
+  MOMENT_COMMENT_MAX,
 } from "@/server/moments/status";
 import { AUDIT_ACTIONS, recordAudit } from "./audit.service";
 import { captureRequestSignals, recordAnalyticsEvent } from "./analytics.service";
@@ -38,6 +59,15 @@ import { resolveSignedInVisitor } from "./visitor-account.service";
  * resolved event, never the form.
  */
 
+export type MomentCommentView = {
+  id: string;
+  body: string;
+  createdAt: Date;
+  authorName: string;
+  /** True when the reader may remove it — its writer, or the post's author. */
+  removable: boolean;
+};
+
 export type MomentView = {
   id: string;
   body: string | null;
@@ -49,9 +79,39 @@ export type MomentView = {
   merchantSlug: string | null;
   /** True when the reader is the author, so the UI can offer a delete. */
   mine: boolean;
+  likes: number;
+  comments: number;
+  likedByViewer: boolean;
+  /** Newest comment, for the feed's one-line preview. */
+  latestComment: MomentCommentView | null;
 };
 
-function toView(row: MomentFeedRow, viewerVisitorId: string | null): MomentView {
+const EMPTY_COUNTS: MomentCounts = { likes: 0, comments: 0, likedByViewer: false };
+
+function toCommentView(
+  row: CommentRow,
+  postVisitorId: string,
+  viewerVisitorId: string | null,
+): MomentCommentView {
+  return {
+    id: row.id,
+    body: row.body,
+    createdAt: row.createdAt,
+    authorName: row.authorName?.trim() || "Visitor",
+    removable: canRemoveComment(
+      { visitorId: row.visitorId, status: "published" },
+      { visitorId: postVisitorId },
+      viewerVisitorId ?? "",
+    ),
+  };
+}
+
+function toView(
+  row: MomentFeedRow,
+  viewerVisitorId: string | null,
+  counts: MomentCounts = EMPTY_COUNTS,
+  latestComment: CommentRow | null = null,
+): MomentView {
   return {
     id: row.id,
     body: row.body,
@@ -65,6 +125,12 @@ function toView(row: MomentFeedRow, viewerVisitorId: string | null): MomentView 
     merchantName: row.merchantName,
     merchantSlug: row.merchantSlug,
     mine: viewerVisitorId !== null && row.visitorId === viewerVisitorId,
+    likes: counts.likes,
+    comments: counts.comments,
+    likedByViewer: counts.likedByViewer,
+    latestComment: latestComment
+      ? toCommentView(latestComment, row.visitorId, viewerVisitorId)
+      : null,
   };
 }
 
@@ -102,7 +168,46 @@ export async function listPublicFeed(
   const rows = await listPublishedPostsForEvent(event.id);
   const total = await countPublishedPostsForEvent(event.id);
 
-  return { eventId: event.id, posts: rows.map((r) => toView(r, viewerVisitorId)), total };
+  // Two queries for the whole page, not three per post — a 60-post feed would
+  // otherwise be 180 round trips on a single-connection pooler.
+  const ids = rows.map((r) => r.id);
+  const counts = await countsForPosts(ids, viewerVisitorId);
+  const latest = await latestCommentsForPosts(ids);
+
+  return {
+    eventId: event.id,
+    total,
+    posts: rows.map((r) =>
+      toView(r, viewerVisitorId, counts.get(r.id) ?? EMPTY_COUNTS, latest.get(r.id) ?? null),
+    ),
+  };
+}
+
+/** One post with its full comment thread — the feed's tap-through. */
+export async function getMomentDetail(
+  ref: EventRef,
+  postId: string,
+  viewerVisitorId: string | null,
+): Promise<{ post: MomentView; comments: MomentCommentView[] } | null> {
+  const event = await findPublicEvent(ref.tenantSlug, ref.eventSlug);
+  if (!event) return null;
+
+  const settings = await getEventSettings(event.tenantId, event.id);
+  if (!settings?.enableMoments) return null;
+
+  // Scoped by event *and* published in one predicate: a hidden or deleted post
+  // is a 404 here, not an explanation, so a direct link can't reveal what
+  // moderation removed.
+  const feedRow = await findPublishedPostForFeed(event.id, postId);
+  if (!feedRow) return null;
+
+  const counts = await countsForPosts([postId], viewerVisitorId);
+  const comments = await listPublishedComments(postId);
+
+  return {
+    post: toView(feedRow, viewerVisitorId, counts.get(postId) ?? EMPTY_COUNTS, null),
+    comments: comments.map((c) => toCommentView(c, feedRow.visitorId, viewerVisitorId)),
+  };
 }
 
 /** The stalls a visitor may tag — the event's approved, public listings. */
@@ -211,6 +316,137 @@ export async function createMomentPost(
   return { id: post.id };
 }
 
+// ---------------------------------------------------------------------------
+// Likes & comments
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves a post that is publicly readable under this event, or throws.
+ *
+ * Every like and comment goes through here, so the post id a client submits is
+ * only ever a *key* — the tenant and event on the row we write come from the
+ * resolved event, and a post id from another organizer's event simply isn't
+ * found.
+ */
+async function resolveTargetPost(ref: EventRef, postId: string) {
+  const event = await resolveMomentsEvent(ref);
+  const post = await findMomentPostById(postId);
+  if (!post || post.eventId !== event.id || !isPubliclyVisible(post.status)) {
+    throw new AppError("NOT_FOUND", { message: "That post is no longer available." });
+  }
+  return { event, post };
+}
+
+/**
+ * Likes or unlikes a post. Returns the resulting state and count so an
+ * optimistic UI can settle on the truth.
+ *
+ * **Signed-in only.** An anonymous like would be a public number anyone could
+ * inflate by clearing a cookie, and `unique(post, visitor)` only means something
+ * when the visitor is an account rather than a disposable identity. Favourites
+ * stay anonymous because they're private to the person; a like is a public
+ * count, which is a different thing.
+ */
+export async function toggleMomentLike(
+  ref: EventRef,
+  postId: string,
+  like: boolean,
+): Promise<{ liked: boolean; likes: number }> {
+  const { event, post } = await resolveTargetPost(ref, postId);
+  const account = await resolveSignedInVisitor();
+
+  const changed = like
+    ? await insertLike({
+        tenantId: event.tenantId,
+        eventId: event.id,
+        momentPostId: post.id,
+        visitorId: account.visitor.id,
+      })
+    : await deleteLike(post.id, account.visitor.id);
+
+  // Only log a *new* like. A double-tap that hits the unique constraint is the
+  // same person liking the same post; counting it again would be a lie.
+  if (changed && like) {
+    const signals = await captureRequestSignals();
+    await recordAnalyticsEvent({
+      tenantId: event.tenantId,
+      eventId: event.id,
+      name: "moment_liked",
+      participationId: post.participationId,
+      visitorId: account.visitor.id,
+      anonymousId: account.visitor.anonymousId,
+      props: { postId: post.id },
+      ...signals,
+    });
+  }
+
+  return { liked: like, likes: await countLikesForPost(post.id) };
+}
+
+/** Adds a comment. Signed-in only, and live immediately like a post. */
+export async function addMomentComment(
+  ref: EventRef,
+  postId: string,
+  rawBody: string,
+): Promise<{ id: string }> {
+  const body = rawBody.trim();
+  if (!hasCommentContent(body)) {
+    throw new AppError("VALIDATION_ERROR", { message: "Write something first." });
+  }
+  if (body.length > MOMENT_COMMENT_MAX) {
+    throw new AppError("VALIDATION_ERROR", {
+      message: `Keep it under ${MOMENT_COMMENT_MAX} characters.`,
+    });
+  }
+
+  const { event, post } = await resolveTargetPost(ref, postId);
+  const account = await resolveSignedInVisitor();
+
+  const comment = await insertComment({
+    tenantId: event.tenantId,
+    eventId: event.id,
+    momentPostId: post.id,
+    visitorId: account.visitor.id,
+    authorUserId: account.userId,
+    body,
+    status: "published",
+  });
+
+  const signals = await captureRequestSignals();
+  await recordAnalyticsEvent({
+    tenantId: event.tenantId,
+    eventId: event.id,
+    name: "moment_commented",
+    participationId: post.participationId,
+    visitorId: account.visitor.id,
+    anonymousId: account.visitor.anonymousId,
+    props: { postId: post.id },
+    ...signals,
+  });
+
+  return { id: comment.id };
+}
+
+/**
+ * Removes a comment — by the person who wrote it, or by whoever's post it's on.
+ *
+ * The second case is the one worth stating: your post is your space, and waiting
+ * for an organiser to hide a nasty reply is not a moderation story.
+ */
+export async function removeMomentComment(commentId: string): Promise<void> {
+  const account = await resolveSignedInVisitor();
+
+  const comment = await findCommentById(commentId);
+  const post = comment ? await findMomentPostById(comment.momentPostId) : null;
+  // Same response whether it's someone else's or doesn't exist — a visitor must
+  // not be able to probe for comment ids.
+  if (!comment || !post || !canRemoveComment(comment, post, account.visitor.id)) {
+    throw new AppError("NOT_FOUND", { message: "That comment is no longer available." });
+  }
+
+  await markCommentDeleted(commentId);
+}
+
 /** The author removes their own post. Ownership is the `visitor_id` match. */
 export async function deleteMomentPost(postId: string): Promise<void> {
   const account = await resolveSignedInVisitor();
@@ -268,6 +504,53 @@ export async function setMomentModeration(
     action: hiding ? AUDIT_ACTIONS.MOMENT_HIDDEN : AUDIT_ACTIONS.MOMENT_RESTORED,
     resourceType: "moment_post",
     resourceId: postId,
+    before: { status: before.status },
+    after: { status: updated.status, reason: updated.hiddenReason },
+  });
+}
+
+export async function listCommentQueue(
+  ctx: TenantScopedContext,
+  eventId: string,
+): Promise<CommentModerationRow[]> {
+  return listCommentsForModeration(ctx.tenant.id, eventId);
+}
+
+/**
+ * Hide or restore a comment. Deliberately the same shape as
+ * `setMomentModeration` — a comment is visitor content on the organizer's event
+ * just as a post is, and two different moderation stories for one surface is a
+ * mistake waiting to happen.
+ */
+export async function setCommentModeration(
+  ctx: TenantScopedContext,
+  commentId: string,
+  action: "hide" | "restore",
+  reason?: string | null,
+): Promise<void> {
+  const before = await findCommentById(commentId);
+  if (!before || before.tenantId !== ctx.tenant.id) {
+    throw new AppError("NOT_FOUND", { message: "Comment not found." });
+  }
+  // A removal by its author (or the post's author) is theirs; an organiser
+  // "restoring" it would put back words someone deliberately took down.
+  if (before.status === "deleted") {
+    throw new AppError("CONFLICT", { message: "This comment was deleted by its author." });
+  }
+
+  const hiding = action === "hide";
+  const updated = await setCommentStatus(ctx.tenant.id, commentId, {
+    status: hiding ? "hidden" : "published",
+    hiddenReason: hiding ? reason?.trim() || null : null,
+    hiddenBy: hiding ? ctx.user.id : null,
+    hiddenAt: hiding ? new Date() : null,
+  });
+  if (!updated) throw new AppError("NOT_FOUND", { message: "Comment not found." });
+
+  await recordAudit(ctx, {
+    action: hiding ? AUDIT_ACTIONS.MOMENT_COMMENT_HIDDEN : AUDIT_ACTIONS.MOMENT_COMMENT_RESTORED,
+    resourceType: "moment_comment",
+    resourceId: commentId,
     before: { status: before.status },
     after: { status: updated.status, reason: updated.hiddenReason },
   });

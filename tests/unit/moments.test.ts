@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { createMomentSchema, moderateMomentSchema } from "@/features/moments/schemas";
+import {
+  commentSchema,
+  createMomentSchema,
+  moderateMomentSchema,
+} from "@/features/moments/schemas";
 import { timeAgo } from "@/lib/time-ago";
 import {
   averageRating,
   canAuthorDelete,
+  canRemoveComment,
+  hasCommentContent,
   hasMomentContent,
   isMomentStatus,
   isPubliclyVisible,
   isRatingAddressable,
   isValidRating,
   MOMENT_BODY_MAX,
+  MOMENT_COMMENT_MAX,
   MOMENT_STATUSES,
 } from "@/server/moments/status";
 
@@ -165,6 +172,74 @@ describe("createMomentSchema", () => {
   it("has no field a client could use to choose a tenant", () => {
     const parsed = createMomentSchema.parse({ ...base, tenantId: "someone-elses-tenant" });
     expect(parsed).not.toHaveProperty("tenantId");
+  });
+});
+
+describe("canRemoveComment", () => {
+  const post = { visitorId: "author" };
+
+  it("lets the commenter remove their own comment", () => {
+    expect(canRemoveComment({ visitorId: "me", status: "published" }, post, "me")).toBe(true);
+  });
+
+  it("lets the post's author remove a comment on their post", () => {
+    // Your post is your space — waiting for an organiser to hide a nasty reply
+    // is not a moderation story.
+    expect(canRemoveComment({ visitorId: "someone", status: "published" }, post, "author")).toBe(
+      true,
+    );
+  });
+
+  it("refuses a bystander", () => {
+    expect(canRemoveComment({ visitorId: "someone", status: "published" }, post, "nosy")).toBe(
+      false,
+    );
+  });
+
+  it("is a no-op on an already-deleted comment", () => {
+    expect(canRemoveComment({ visitorId: "me", status: "deleted" }, post, "me")).toBe(false);
+  });
+
+  it("does not treat an anonymous viewer as the author", () => {
+    // The service passes "" when nobody is signed in; an empty visitor id must
+    // never match a real one.
+    expect(canRemoveComment({ visitorId: "", status: "published" }, { visitorId: "" }, "")).toBe(
+      true,
+    );
+    expect(canRemoveComment({ visitorId: "me", status: "published" }, post, "")).toBe(false);
+  });
+});
+
+describe("hasCommentContent", () => {
+  it("accepts real text", () => {
+    expect(hasCommentContent("nice")).toBe(true);
+  });
+
+  it("rejects blank, whitespace-only, and missing bodies", () => {
+    expect(hasCommentContent("")).toBe(false);
+    expect(hasCommentContent("   \n\t ")).toBe(false);
+    expect(hasCommentContent(null)).toBe(false);
+    expect(hasCommentContent(undefined)).toBe(false);
+  });
+});
+
+describe("commentSchema", () => {
+  const id = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
+  const base = { postId: id, tenantSlug: "kl-food", eventSlug: "weekend-flavours" };
+
+  it("trims and accepts a comment", () => {
+    expect(commentSchema.parse({ ...base, body: "  so good  " }).body).toBe("so good");
+  });
+
+  it("rejects blank and over-long comments", () => {
+    expect(commentSchema.safeParse({ ...base, body: "   " }).success).toBe(false);
+    expect(
+      commentSchema.safeParse({ ...base, body: "x".repeat(MOMENT_COMMENT_MAX + 1) }).success,
+    ).toBe(false);
+  });
+
+  it("caps comments shorter than captions", () => {
+    expect(MOMENT_COMMENT_MAX).toBeLessThan(MOMENT_BODY_MAX);
   });
 });
 

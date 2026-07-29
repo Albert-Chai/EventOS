@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { MapPin, MoreHorizontal, Star } from "lucide-react";
+import { Heart, MapPin, MessageCircle, MoreHorizontal, Star } from "lucide-react";
 
 import { MediaImage } from "@/components/media/media-image";
 import { timeAgo } from "@/lib/time-ago";
 import type { MomentView } from "@/server/services/moment.service";
 
 import { deleteMomentAction } from "../actions";
+import { LikeButton } from "./like-button";
 
 /**
  * One post in the feed, laid out the way a photo feed is read: who posted,
@@ -38,13 +39,22 @@ export function MomentCard({
   baseHref,
   tenantSlug,
   eventSlug,
+  canInteract,
+  signInHref,
+  showComments = true,
 }: {
   post: MomentView;
   baseHref: string;
   tenantSlug: string;
   eventSlug: string;
+  /** Whether the reader is signed in — liking and commenting need an account. */
+  canInteract: boolean;
+  signInHref: string;
+  /** False on the post's own page, where the thread is rendered below. */
+  showComments?: boolean;
 }) {
   const initial = post.authorName.charAt(0).toUpperCase();
+  const postHref = `${baseHref}/moments/${post.id}`;
 
   return (
     <li id={`m-${post.id}`} className="min-w-0 scroll-mt-24 border-b border-[var(--feed-line)] pb-3 last:border-0">
@@ -114,15 +124,31 @@ export function MomentCard({
         </blockquote>
       )}
 
-      {/* Action row — the rating is this feed's engagement signal. */}
-      {post.rating ? (
-        <div className="flex items-center gap-2 px-3 pt-2.5">
-          <Stars rating={post.rating} size="md" />
-          <span className="text-xs font-semibold text-[var(--feed-muted)]">
-            rated {post.rating}/5
+      {/* Action row — like, comment, and the stall rating side by side. */}
+      <div className="flex items-center gap-3 px-2.5 pt-2">
+        <LikeButton
+          postId={post.id}
+          tenantSlug={tenantSlug}
+          eventSlug={eventSlug}
+          initialLiked={post.likedByViewer}
+          initialCount={post.likes}
+          canLike={canInteract}
+          signInHref={signInHref}
+        />
+        <Link
+          href={postHref}
+          aria-label={`Comment on ${post.authorName}'s moment`}
+          className="inline-flex items-center gap-1.5 px-1 py-1 text-sm font-semibold hover:text-[var(--brand)]"
+        >
+          <MessageCircle aria-hidden className="size-6 -scale-x-100" />
+          {post.comments > 0 ? <span className="tabular-nums">{post.comments}</span> : null}
+        </Link>
+        {post.rating ? (
+          <span className="ml-auto flex items-center gap-1.5 pr-1">
+            <Stars rating={post.rating} />
           </span>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {/* Caption — name and text run together, the way a feed reads. */}
       {post.imageUrl && post.body ? (
@@ -132,20 +158,47 @@ export function MomentCard({
         </p>
       ) : null}
 
-      <p className="px-3 pt-2 text-[11px] tracking-wide text-[var(--feed-muted)] uppercase">
-        {timeAgo(post.createdAt)}
-      </p>
+      {/* Suppressed on the post's own page, where the full thread is right
+          below — a "view all comments" link above the comments is noise. */}
+      {showComments && post.comments > 0 ? (
+        <div className="grid gap-1 px-3 pt-1.5">
+          {post.comments > 1 ? (
+            <Link href={postHref} className="text-sm text-[var(--feed-muted)] hover:underline">
+              View all {post.comments} comments
+            </Link>
+          ) : null}
+          {post.latestComment ? (
+            <p className="text-sm leading-snug">
+              <span className="font-semibold">{post.latestComment.authorName}</span>{" "}
+              <span>{post.latestComment.body}</span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showComments ? (
+        <Link
+          href={postHref}
+          className="block px-3 pt-2 text-[11px] tracking-wide text-[var(--feed-muted)] uppercase hover:underline"
+        >
+          {timeAgo(post.createdAt)}
+        </Link>
+      ) : (
+        <p className="px-3 pt-2 text-[11px] tracking-wide text-[var(--feed-muted)] uppercase">
+          {timeAgo(post.createdAt)}
+        </p>
+      )}
     </li>
   );
 }
 
 /** A photo tile in the grid view. Text-only posts have nothing to show here. */
-export function MomentTile({ post, feedHref }: { post: MomentView; feedHref: string }) {
+export function MomentTile({ post, baseHref }: { post: MomentView; baseHref: string }) {
   if (!post.imageUrl) return null;
   return (
     <li className="min-w-0">
       <Link
-        href={`${feedHref}#m-${post.id}`}
+        href={`${baseHref}/moments/${post.id}`}
         className="relative block aspect-square w-full overflow-hidden bg-black"
       >
         <MediaImage
@@ -156,12 +209,32 @@ export function MomentTile({ post, feedHref }: { post: MomentView; feedHref: str
           rounded="none"
           className="absolute inset-0 h-full w-full object-cover transition-opacity hover:opacity-90"
         />
-        {post.rating ? (
-          <span className="absolute right-1 bottom-1 flex items-center gap-0.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-            <Star aria-hidden className="size-2.5 fill-amber-400 text-amber-400" />
-            {post.rating}
-          </span>
-        ) : null}
+        <span className="absolute inset-x-1 bottom-1 flex items-center justify-between gap-1">
+          {post.rating ? (
+            <span className="flex items-center gap-0.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              <Star aria-hidden className="size-2.5 fill-amber-400 text-amber-400" />
+              {post.rating}
+            </span>
+          ) : (
+            <span />
+          )}
+          {post.likes > 0 || post.comments > 0 ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {post.likes > 0 ? (
+                <span className="flex items-center gap-0.5">
+                  <Heart aria-hidden className="size-2.5 fill-current" />
+                  {post.likes}
+                </span>
+              ) : null}
+              {post.comments > 0 ? (
+                <span className="flex items-center gap-0.5">
+                  <MessageCircle aria-hidden className="size-2.5" />
+                  {post.comments}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
       </Link>
     </li>
   );

@@ -63,3 +63,5 @@ export * from "./notification-deliveries";
 export * from "./sponsors";
 export * from "./ad-bookings";
 export * from "./moment-posts";
+export * from "./moment-likes";
+export * from "./moment-comments";

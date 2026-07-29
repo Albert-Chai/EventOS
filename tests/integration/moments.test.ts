@@ -2,7 +2,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/server/db";
-import { momentPosts, tenants, visitors } from "@/server/db/schema";
+import { momentComments, momentPosts, tenants, visitors } from "@/server/db/schema";
+import {
+  countLikesForPost,
+  countsForPosts,
+  deleteLike,
+  insertComment,
+  insertLike,
+  latestCommentsForPosts,
+  listCommentsForModeration,
+  listPublishedComments,
+  markCommentDeleted,
+  setCommentStatus,
+} from "@/server/db/repositories/moment-social.repository";
 import { createEventWithDefaults } from "@/server/db/repositories/events.repository";
 import { insertMerchant } from "@/server/db/repositories/merchants.repository";
 import { insertParticipation } from "@/server/db/repositories/participations.repository";
@@ -230,6 +242,161 @@ describe.skipIf(!hasDb)("moments (integration)", () => {
 
     const summaryB = await ratingSummaryForEvent(tenantB, eventB);
     expect(summaryB).toHaveLength(0);
+  });
+
+  // --- Likes ---------------------------------------------------------------
+
+  it("counts one like per visitor however many times they tap", async () => {
+    const target = await post({ body: `likeable-${stamp}` });
+    const like = { tenantId: tenantA, eventId: eventA, momentPostId: target.id };
+
+    expect(await insertLike({ ...like, visitorId: visitor1 })).toBe(true);
+    // The double-tap. onConflictDoNothing against moment_likes_post_visitor_uq
+    // is what keeps the count honest rather than just tidy.
+    expect(await insertLike({ ...like, visitorId: visitor1 })).toBe(false);
+    expect(await countLikesForPost(target.id)).toBe(1);
+
+    expect(await insertLike({ ...like, visitorId: visitor2 })).toBe(true);
+    expect(await countLikesForPost(target.id)).toBe(2);
+  });
+
+  it("unlikes only the caller's own like", async () => {
+    const target = await post({ body: `unlikeable-${stamp}` });
+    const like = { tenantId: tenantA, eventId: eventA, momentPostId: target.id };
+    await insertLike({ ...like, visitorId: visitor1 });
+    await insertLike({ ...like, visitorId: visitor2 });
+
+    expect(await deleteLike(target.id, visitor1)).toBe(true);
+    expect(await countLikesForPost(target.id)).toBe(1);
+    // Unliking twice is a no-op, not an error or a negative count.
+    expect(await deleteLike(target.id, visitor1)).toBe(false);
+    expect(await countLikesForPost(target.id)).toBe(1);
+  });
+
+  // --- Comments ------------------------------------------------------------
+
+  it("rejects a blank comment at the database, not just the service", async () => {
+    const target = await post({ body: `commentable-${stamp}` });
+    expect(
+      await rejectedBy(
+        insertComment({
+          tenantId: tenantA,
+          eventId: eventA,
+          momentPostId: target.id,
+          visitorId: visitor1,
+          body: "   \n  ",
+        }),
+      ),
+    ).toBe("moment_comments_has_body_ck");
+  });
+
+  it("shows published comments and hides moderated ones", async () => {
+    const target = await post({ body: `thread-${stamp}` });
+    const base = {
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: target.id,
+      visitorId: visitor1,
+    };
+    const live = await insertComment({ ...base, body: "first" });
+    const hidden = await insertComment({ ...base, body: "second" });
+    const removed = await insertComment({ ...base, body: "third" });
+
+    await setCommentStatus(tenantA, hidden.id, { status: "hidden", hiddenAt: new Date() });
+    await markCommentDeleted(removed.id);
+
+    const thread = await listPublishedComments(target.id);
+    const ids = thread.map((c) => c.id);
+    expect(ids).toContain(live.id);
+    expect(ids).not.toContain(hidden.id);
+    expect(ids).not.toContain(removed.id);
+
+    // The organiser's queue still shows all three.
+    const queue = await listCommentsForModeration(tenantA, eventA);
+    const queueIds = queue.map((c) => c.id);
+    expect(queueIds).toEqual(expect.arrayContaining([live.id, hidden.id, removed.id]));
+  });
+
+  it("refuses a comment moderation write from the wrong tenant", async () => {
+    const target = await post({ body: `guarded-thread-${stamp}` });
+    const comment = await insertComment({
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: target.id,
+      visitorId: visitor1,
+      body: "hands off",
+    });
+
+    expect(await setCommentStatus(tenantB, comment.id, { status: "hidden" })).toBeNull();
+    const [untouched] = await db
+      .select()
+      .from(momentComments)
+      .where(eq(momentComments.id, comment.id));
+    expect(untouched.status).toBe("published");
+
+    const crossed = await listCommentsForModeration(tenantB, eventA);
+    expect(crossed).toHaveLength(0);
+  });
+
+  it("counts likes and comments per post in one pass, per viewer", async () => {
+    const a = await post({ body: `counts-a-${stamp}` });
+    const b = await post({ body: `counts-b-${stamp}` });
+    const like = { tenantId: tenantA, eventId: eventA };
+
+    await insertLike({ ...like, momentPostId: a.id, visitorId: visitor1 });
+    await insertLike({ ...like, momentPostId: a.id, visitorId: visitor2 });
+    await insertComment({
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: a.id,
+      visitorId: visitor2,
+      body: "counted",
+    });
+
+    const forVisitor1 = await countsForPosts([a.id, b.id], visitor1);
+    expect(forVisitor1.get(a.id)).toEqual({ likes: 2, comments: 1, likedByViewer: true });
+    expect(forVisitor1.get(b.id)).toEqual({ likes: 0, comments: 0, likedByViewer: false });
+
+    // The same posts, a viewer who liked nothing — the counts are shared, the
+    // "did I like it" flag is not.
+    const anonymous = await countsForPosts([a.id, b.id], null);
+    expect(anonymous.get(a.id)).toEqual({ likes: 2, comments: 1, likedByViewer: false });
+  });
+
+  it("previews the newest comment per post", async () => {
+    const target = await post({ body: `preview-${stamp}` });
+    const base = {
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: target.id,
+      visitorId: visitor1,
+    };
+    await insertComment({ ...base, body: "older" });
+    await insertComment({ ...base, body: "newest" });
+
+    const previews = await latestCommentsForPosts([target.id]);
+    expect(previews.get(target.id)?.body).toBe("newest");
+  });
+
+  it("removes a post's likes and comments with it", async () => {
+    const target = await post({ body: `cascade-${stamp}` });
+    await insertLike({
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: target.id,
+      visitorId: visitor1,
+    });
+    await insertComment({
+      tenantId: tenantA,
+      eventId: eventA,
+      momentPostId: target.id,
+      visitorId: visitor1,
+      body: "bye",
+    });
+
+    await db.delete(momentPosts).where(eq(momentPosts.id, target.id));
+    expect(await countLikesForPost(target.id)).toBe(0);
+    expect(await listPublishedComments(target.id)).toHaveLength(0);
   });
 
   // --- The account link ----------------------------------------------------

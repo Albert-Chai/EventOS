@@ -148,7 +148,7 @@ export default async function MomentsPage({ params, searchParams }: Params) {
         ) : isGrid ? (
           <ul className="grid grid-cols-3 gap-px [&>li]:min-w-0">
             {withPhotos.map((post) => (
-              <MomentTile key={post.id} post={post} feedHref={feedHref} />
+              <MomentTile key={post.id} post={post} baseHref={baseHref} />
             ))}
           </ul>
         ) : (
@@ -160,6 +160,8 @@ export default async function MomentsPage({ params, searchParams }: Params) {
                 baseHref={baseHref}
                 tenantSlug={tenantSlug}
                 eventSlug={eventSlug}
+                canInteract={Boolean(viewer)}
+                signInHref={`/sign-in?next=${encodeURIComponent(feedHref)}`}
               />
             ))}
           </ul>

@@ -5,12 +5,16 @@ import { notFound } from "next/navigation";
 import { MediaImage } from "@/components/media/media-image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { moderateMomentAction } from "@/features/moments/dashboard-actions";
+import { moderateCommentAction, moderateMomentAction } from "@/features/moments/dashboard-actions";
 import { getEventSettings } from "@/server/db/repositories/event-config.repository";
 import { findEventById } from "@/server/db/repositories/events.repository";
 import { requirePermissionOrRedirect } from "@/server/policies/require-user";
 import { MOMENT_STATUS_LABELS, type MomentStatus } from "@/server/moments/status";
-import { listModerationQueue, stallRatings } from "@/server/services/moment.service";
+import {
+  listCommentQueue,
+  listModerationQueue,
+  stallRatings,
+} from "@/server/services/moment.service";
 import { publicFileUrl } from "@/server/services/media.service";
 
 export const metadata: Metadata = {
@@ -40,10 +44,13 @@ export default async function EventMomentsPage({
   // Sequential: the dev/test pooler caps at one connection.
   const settings = await getEventSettings(ctx.tenant.id, eventId);
   const posts = await listModerationQueue(ctx, eventId);
+  const comments = await listCommentQueue(ctx, eventId);
   const ratings = await stallRatings(ctx, eventId);
 
   const live = posts.filter((p) => p.status === "published").length;
   const hidden = posts.filter((p) => p.status === "hidden").length;
+  const liveComments = comments.filter((c) => c.status === "published").length;
+  const hiddenComments = comments.filter((c) => c.status === "hidden").length;
   const ratedStalls = ratings.length;
   const overall =
     ratings.length > 0
@@ -177,6 +184,82 @@ export default async function EventMomentsPage({
                         <p className="text-muted-foreground text-xs">Deleted by its author.</p>
                       )}
                     </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comments</CardTitle>
+          <CardDescription>
+            {liveComments} live · {hiddenComments} hidden. Visitors can also remove comments on
+            their own posts, which is usually faster than waiting for you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {comments.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No comments yet.</p>
+          ) : (
+            <ul className="grid gap-2">
+              {comments.map((comment) => {
+                const status = comment.status as MomentStatus;
+                return (
+                  <li key={comment.id} className="grid min-w-0 gap-1 rounded-lg border p-3">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {comment.authorName ?? "Visitor"}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {comment.createdAt.toLocaleString()}
+                      </span>
+                      <span
+                        className={
+                          status === "published"
+                            ? "rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700"
+                            : "bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-semibold"
+                        }
+                      >
+                        {MOMENT_STATUS_LABELS[status] ?? status}
+                      </span>
+                    </div>
+                    <p className="text-sm">{comment.body}</p>
+                    <p className="text-muted-foreground truncate text-xs italic">
+                      on: {comment.postBody ?? "a photo"}
+                    </p>
+                    {comment.hiddenReason ? (
+                      <p className="text-muted-foreground text-xs italic">
+                        Hidden: {comment.hiddenReason}
+                      </p>
+                    ) : null}
+
+                    {status !== "deleted" ? (
+                      <form action={moderateCommentAction} className="mt-1 flex flex-wrap gap-2">
+                        <input type="hidden" name="eventId" value={eventId} />
+                        <input type="hidden" name="commentId" value={comment.id} />
+                        <input
+                          type="hidden"
+                          name="action"
+                          value={status === "published" ? "hide" : "restore"}
+                        />
+                        {status === "published" ? (
+                          <input
+                            name="reason"
+                            placeholder="Reason (optional)"
+                            maxLength={200}
+                            className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+                          />
+                        ) : null}
+                        <Button type="submit" variant="outline" size="sm">
+                          {status === "published" ? "Hide" : "Restore"}
+                        </Button>
+                      </form>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">Removed by its author.</p>
+                    )}
                   </li>
                 );
               })}

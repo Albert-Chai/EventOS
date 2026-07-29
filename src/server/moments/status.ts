@@ -26,6 +26,12 @@ export const MOMENT_STATUS_LABELS: Record<MomentStatus, string> = {
 /** Longest caption we accept. Long enough for a story, short enough to scan. */
 export const MOMENT_BODY_MAX = 500;
 
+/**
+ * Comments are shorter than captions on purpose: a comment is a reply, and a
+ * 500-character reply in a feed is a wall.
+ */
+export const MOMENT_COMMENT_MAX = 300;
+
 export const MOMENT_RATING_MIN = 1;
 export const MOMENT_RATING_MAX = 5;
 
@@ -80,6 +86,25 @@ export function canAuthorDelete(
   visitorId: string,
 ): boolean {
   return post.visitorId === visitorId && post.status !== "deleted";
+}
+
+/**
+ * A comment can be removed by the person who wrote it **or** by whoever's post
+ * it is on. The second half matters: your post is your space, and waiting for an
+ * organiser to hide a nasty reply is not a moderation story.
+ */
+export function canRemoveComment(
+  comment: { visitorId: string; status: string },
+  post: { visitorId: string },
+  visitorId: string,
+): boolean {
+  if (comment.status === "deleted") return false;
+  return comment.visitorId === visitorId || post.visitorId === visitorId;
+}
+
+/** A comment is only its text, so blank is nothing at all. */
+export function hasCommentContent(body: string | null | undefined): boolean {
+  return typeof body === "string" && body.trim().length > 0;
 }
 
 /** Rounds a raw average to one decimal, or null when there's nothing to average. */

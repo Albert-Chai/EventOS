@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { MOMENT_BODY_MAX, MOMENT_RATING_MAX, MOMENT_RATING_MIN } from "@/server/moments/status";
+import {
+  MOMENT_BODY_MAX,
+  MOMENT_COMMENT_MAX,
+  MOMENT_RATING_MAX,
+  MOMENT_RATING_MIN,
+} from "@/server/moments/status";
 
 /**
  * Moments input schemas. Server-side validation is the authoritative one; the
@@ -50,6 +55,37 @@ export const deleteMomentSchema = z.object({
 export const moderateMomentSchema = z.object({
   eventId: z.uuid(),
   postId: z.uuid(),
+  action: z.enum(["hide", "restore"]),
+  reason: z.string().trim().max(200).optional(),
+});
+
+export const likeSchema = z.object({
+  postId: z.uuid(),
+  tenantSlug: z.string().min(1),
+  eventSlug: z.string().min(1),
+  like: z.boolean(),
+});
+
+export const commentSchema = z.object({
+  postId: z.uuid(),
+  tenantSlug: z.string().min(1),
+  eventSlug: z.string().min(1),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Write something first.")
+    .max(MOMENT_COMMENT_MAX, `Keep it under ${MOMENT_COMMENT_MAX} characters.`),
+});
+
+export const removeCommentSchema = z.object({
+  commentId: z.uuid(),
+  tenantSlug: z.string().min(1),
+  eventSlug: z.string().min(1),
+});
+
+export const moderateCommentSchema = z.object({
+  eventId: z.uuid(),
+  commentId: z.uuid(),
   action: z.enum(["hide", "restore"]),
   reason: z.string().trim().max(200).optional(),
 });

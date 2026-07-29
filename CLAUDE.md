@@ -266,6 +266,20 @@ by a future code path and a constraint cannot. (`btrim()` trims spaces only; the
 Visitor photos count against the organizer's storage limit and are uploaded
 before the insert, since a photo-only post has no other content.
 
+**Likes & comments.** `moment_likes` is append/delete only; its
+`unique(moment_post_id, visitor_id)` is what keeps the count honest under a
+double-tap — never replace the `onConflictDoNothing` with a read-then-write.
+`moment_comments` mirrors `moment_posts` exactly (same status union, same
+`hidden_*` trio, same non-blank CHECK) on purpose: two moderation stories for one
+surface is a bug waiting to happen. **Liking requires an account** while
+favouriting does not — a favourite is private to the person, a like is a public
+count, and one anyone can inflate by clearing a cookie is worse than none.
+`canRemoveComment` lets the commenter *or the post's author* remove a comment;
+the organiser can additionally hide either (`moment.comment_hidden` /
+`..._restored`). Feed counts are two queries for the whole page (a correlated
+subquery pass + `DISTINCT ON` for the newest comment) — never per-post, which on
+a single-connection pooler would stall.
+
 **Known gap:** application-level rate limiting is not implemented (needs Redis).
 Supabase's built-in auth limits apply in the meantime. That gap matters more now
 that Moments accepts visitor-generated content.

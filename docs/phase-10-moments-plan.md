@@ -175,9 +175,60 @@ Feed/Grid is a `?view=` param, not client state: it survives a share, a refresh,
 and the back button, and costs no JavaScript. The author's overflow menu is a
 `<details>`, so it opens and submits without hydration.
 
-**Not built, on purpose:** likes, comments, and follows — the product decision
-was a feed, not a social network. The rating is the engagement signal, and it's
-the one that's useful to an organiser.
+## 9. Likes and comments
+
+Added after the first cut. Two tables, both cascading from the post:
+
+`moment_likes` is append/delete only — no `updated_at`, no trigger, no status. A
+like has no states; it exists or it doesn't. `unique(moment_post_id, visitor_id)`
+is the whole integrity story, and `onConflictDoNothing` against it is what makes
+a double-tap idempotent rather than a duplicate row. The count is derived from
+rows, so a second row would be a *wrong number*, not just clutter.
+
+`moment_comments` deliberately mirrors `moment_posts`: same status union, same
+accountable `hidden_*` trio, same blank-body CHECK (using the corrected
+`~ '[^[:space:]]'` predicate from 0022, not `btrim`). A comment is visitor
+content on the organizer's event exactly as a post is, and two moderation
+stories for one surface is a mistake waiting to happen.
+
+### Liking requires an account
+
+Favourites are anonymous; likes are not. The difference is that a favourite is
+*private to the person* while a like is a *public count* — one anyone could
+inflate by clearing a cookie would be worse than no count at all, and
+`unique(post, visitor)` only means something when the visitor is an account
+rather than a disposable identity. A signed-out reader gets a link to sign-in
+where the button would be, never a control that silently does nothing.
+
+### Removing a comment
+
+`canRemoveComment` allows the person who wrote it **or** whoever's post it's on.
+The second half is the point: your post is your space, and waiting for an
+organiser to hide a nasty reply is not a moderation story. The organiser can
+still hide either, audited as `moment.comment_hidden` / `..._restored`.
+
+### Counting without an N+1
+
+The feed needs three numbers per post — likes, comments, did-I-like-it — plus a
+one-line preview of the newest comment. Done naively that's four queries per
+post; on a 60-post feed against a **single-connection** pooler, that's a stall.
+Instead it's two queries for the whole page: one correlated-subquery pass for
+the counts, and one `DISTINCT ON` for the newest comment per post.
+
+### Surfaces
+
+`/{tenant}/{event}/moments/{postId}` is the post page — where the comment icon,
+"view all N comments", and every grid tile land. A hidden or deleted post 404s
+there exactly as it vanishes from the feed, so a direct link can never reveal
+what moderation removed.
+
+**Still not built:** follows, notifications, replies-to-comments, and likes on
+comments.
+
+**Worth stating:** likes and comments are cheap, high-volume, authenticated
+writes with **no application rate limiting** (the standing §6 gap — needs Redis).
+Supabase's auth limits bound account creation, not what an account does once
+signed in.
 
 ## 8. Out of scope, deliberately
 

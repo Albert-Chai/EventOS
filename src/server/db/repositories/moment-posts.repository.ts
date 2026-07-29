@@ -77,6 +77,28 @@ export async function listPublishedPostsForEvent(
     .limit(limit);
 }
 
+/** One published post in feed shape, for the post-detail page. */
+export async function findPublishedPostForFeed(
+  eventId: string,
+  postId: string,
+): Promise<MomentFeedRow | null> {
+  const [row] = await db
+    .select(feedColumns)
+    .from(momentPosts)
+    .innerJoin(visitors, eq(visitors.id, momentPosts.visitorId))
+    .leftJoin(files, eq(files.id, momentPosts.imageFileId))
+    .leftJoin(
+      merchantEventParticipations,
+      eq(merchantEventParticipations.id, momentPosts.participationId),
+    )
+    .leftJoin(merchants, eq(merchants.id, merchantEventParticipations.merchantId))
+    .where(
+      and(eq(momentPosts.id, postId), eq(momentPosts.eventId, eventId), visiblePredicate()),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 /** Published posts tagged to one stall, for a merchant page or a rating rollup. */
 export async function listPublishedPostsForParticipation(
   participationId: string,
