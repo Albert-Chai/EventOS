@@ -7,7 +7,7 @@ import { FilterBar } from "@/features/visitors/components/filter-bar";
 import { MerchantCard } from "@/features/visitors/components/merchant-card";
 import { SearchBar } from "@/features/visitors/components/search-bar";
 import { hasActiveFilters, parseDirectoryParams } from "@/features/visitors/filters";
-import { brandStyle } from "@/features/visitors/neon";
+import { brandStyle } from "@/features/visitors/theme";
 import {
   getEventBranding,
   getEventSettings,
@@ -56,7 +56,7 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   ]);
 
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
-  const primary = branding?.primaryColor ?? "#ff2d78";
+  const primary = branding?.primaryColor ?? "#e11d48";
   const showFavourite = settings?.enableFavourites ?? true;
   const isSearching = hasActiveFilters(sp);
 
@@ -83,10 +83,13 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         />
       ) : null}
       <div className="mb-4 grid gap-1">
-        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
+        <Link
+          href={baseHref}
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
           ← {event.name}
         </Link>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">Stalls</h1>
+        <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Stalls</h1>
       </div>
 
       <div className="grid gap-3">
@@ -94,16 +97,16 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         <FilterBar facets={facets} />
       </div>
 
-      <p className="mt-4 text-sm text-white/55" aria-live="polite">
-        <span className="font-bold text-[var(--neon-lime)]">{results.length}</span>{" "}
+      <p className="text-muted-foreground mt-4 text-sm" aria-live="polite">
+        <span className="font-bold text-[var(--brand)]">{results.length}</span>{" "}
         {results.length === 1 ? "stall" : "stalls"}
         {isSearching ? " match your search" : ""}
       </p>
 
       {results.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-8 text-center">
-          <p className="text-sm font-semibold text-white">No stalls found</p>
-          <p className="mt-1 text-sm text-white/55">
+        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+          <p className="text-foreground text-sm font-semibold">No stalls found</p>
+          <p className="text-muted-foreground mt-1 text-sm">
             {isSearching
               ? "Try a different search or clear the filters."
               : "Listings will appear here as they’re approved."}

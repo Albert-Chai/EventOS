@@ -1,5 +1,6 @@
 "use client";
 
+import { Expand, Maximize2, Minus, Plus, RotateCw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,16 +9,16 @@ import { cn } from "@/lib/utils";
 import { BOOTH_STATUS_COLORS, type BoothStatus } from "@/server/booths/status";
 
 /**
- * The public interactive event map (spec §8.6), Night Market Neon look: a
- * festival floor plan with a "Food Plan" route builder alongside it.
+ * The public interactive floor plan (spec §8.6) as a festival app screen: a
+ * light venue map filling the viewport, a floating control stack, and a bottom
+ * sheet that carries search, the selected stall, and the visitor's food plan.
  *
- * - Drag to pan, wheel/pinch to zoom, buttons to zoom/reset.
- * - Booths are numbered pills coloured by zone; tap one for its merchant.
- * - Add stalls to a Food Plan, pick an entrance, and the plan orders itself into
- *   a walking route (nearest-neighbour) drawn over the map. Step through it
- *   stop-by-stop, and share it (WhatsApp / Facebook / copy) — the plan lives in
- *   the URL, so a shared link reopens the same route, and on the device so it
- *   survives a reload. All client-side; no new server surface.
+ * - Drag to pan, wheel/pinch to zoom, buttons to zoom / fit / reset.
+ * - Stalls are numbered tiles coloured by zone; tap one to open its details.
+ * - Food Plan: add stalls as stops, pick an entrance, and the plan orders itself
+ *   into a walking route (nearest-neighbour) drawn over the map. Step through it
+ *   stop-by-stop, and share it (WhatsApp / Facebook / copy). The plan is encoded
+ *   in the URL, so a shared link reopens the same route and a reload keeps it.
  *
  * Booth coordinates are normalized (centre), so everything lands correctly at
  * any size — mobile included.
@@ -51,37 +52,38 @@ export type PublicMapBooth = {
 export type PublicMapZone = { id: string; name: string; color: string | null };
 
 type Point = { x: number; y: number };
-type Entrance = { id: string; label: string; x: number; y: number };
+type Entrance = { id: string; label: string; short: string; x: number; y: number };
 
 // Four schematic gates on the edges — no venue geometry, so routes between them
-// and the stalls are approximate straight lines (as flagged to the organizer).
+// and the stalls are approximate straight lines.
 const ENTRANCES: readonly Entrance[] = [
-  { id: "north", label: "North Gate", x: 0.5, y: 0.05 },
-  { id: "east", label: "East Gate", x: 0.95, y: 0.5 },
-  { id: "south", label: "South Gate", x: 0.5, y: 0.95 },
-  { id: "west", label: "West Gate", x: 0.05, y: 0.5 },
+  { id: "north", label: "North Gate", short: "N", x: 0.5, y: 0.04 },
+  { id: "east", label: "East Gate", short: "E", x: 0.96, y: 0.5 },
+  { id: "south", label: "South Gate", short: "S", x: 0.5, y: 0.96 },
+  { id: "west", label: "West Gate", short: "W", x: 0.04, y: 0.5 },
 ];
 
-// Vivid zone palette for the dark ground, used when a zone has no colour of its
-// own. Assigned by zone order so the map and legend always agree.
+// Zone palette tuned for the light venue ground, used when a zone has no colour
+// of its own. Assigned by zone order so map and legend always agree.
 const ZONE_PALETTE = [
-  "#ff2d78",
-  "#ff8a3d",
-  "#c6f24e",
-  "#39d98a",
-  "#38bdf8",
-  "#a78bfa",
+  "#c084fc",
+  "#f59e0b",
+  "#34d399",
+  "#60a5fa",
   "#fb7185",
-  "#facc15",
+  "#a3e635",
+  "#22d3ee",
+  "#f472b6",
 ];
 
-const MIN_SCALE = 1;
+const MIN_SCALE = 0.6;
 const MAX_SCALE = 6;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 export function PublicMap({
   baseHref,
   eventName,
+  venueName,
   floors,
   booths,
   zones,
@@ -89,6 +91,7 @@ export function PublicMap({
 }: {
   baseHref: string;
   eventName: string;
+  venueName?: string | null;
   floors: PublicMapFloor[];
   booths: PublicMapBooth[];
   zones: PublicMapZone[];
@@ -121,14 +124,14 @@ export function PublicMap({
   );
   const [selectedId, setSelectedId] = useState<string | null>(initial?.id ?? null);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(true);
 
-  // Food Plan state — an ordered list of booth numbers, an optional entrance,
-  // and the current step when walking the route. Seeded from the URL
-  // (?plan=A1,C3&from=north) so a shared link — or a plain reload, since we mirror
-  // the plan back into the URL — reopens the same route. Reading it in the state
-  // initializer keeps SSR and the first client render identical (no localStorage,
-  // so no post-hydration setState).
+  // Food Plan — an ordered list of booth numbers, an optional entrance, and the
+  // current step when walking the route. Seeded from the URL so a shared link
+  // (?plan=A1,C3&from=north) or a reload reopens the same route; reading it in
+  // the initializer keeps SSR and the first client render identical.
   const [plan, setPlan] = useState<string[]>(() => {
     const p = searchParams.get("plan");
     return p ? p.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -143,9 +146,8 @@ export function PublicMap({
   const viewportRef = useRef<HTMLDivElement>(null);
   const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
-  // Mirror the plan back into the URL (via replaceState, so it doesn't trigger a
-  // navigation) whenever it changes — that's what makes it shareable and
-  // reload-proof. Skips the first run so the initial URL is left untouched.
+  // Mirror the plan into the URL (replaceState — no navigation) so it's
+  // shareable and survives a reload. Skips the first run.
   const didMount = useRef(false);
   useEffect(() => {
     if (!didMount.current) {
@@ -157,16 +159,12 @@ export function PublicMap({
     else qs.delete("plan");
     if (entranceId) qs.set("from", entranceId);
     else qs.delete("from");
-    const query = qs.toString();
-    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
+    const q = qs.toString();
+    window.history.replaceState(null, "", q ? `${pathname}?${q}` : pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, entranceId]);
 
   const activeFloor = floors.find((f) => f.id === activeFloorId) ?? null;
-  const aspect =
-    activeFloor?.imageWidth && activeFloor?.imageHeight
-      ? activeFloor.imageWidth / activeFloor.imageHeight
-      : 3 / 2;
 
   const floorBooths = useMemo(
     () =>
@@ -186,9 +184,13 @@ export function PublicMap({
     [normalizedQuery],
   );
   const isDimmed = useCallback(
-    (b: PublicMapBooth) =>
-      !matchesSearch(b) || (zoneFilter !== null && b.zoneId !== zoneFilter),
+    (b: PublicMapBooth) => !matchesSearch(b) || (zoneFilter !== null && b.zoneId !== zoneFilter),
     [matchesSearch, zoneFilter],
+  );
+
+  const searchResults = useMemo(
+    () => (normalizedQuery.length === 0 ? [] : floorBooths.filter(matchesSearch).slice(0, 12)),
+    [normalizedQuery, floorBooths, matchesSearch],
   );
 
   const selected = booths.find((b) => b.id === selectedId) ?? null;
@@ -200,13 +202,15 @@ export function PublicMap({
   }, [plan]);
 
   const planBooths = useMemo(
-    () => plan.map((n) => boothByNumber.get(n.toLowerCase())).filter((b): b is PublicMapBooth => Boolean(b)),
+    () =>
+      plan
+        .map((n) => boothByNumber.get(n.toLowerCase()))
+        .filter((b): b is PublicMapBooth => Boolean(b)),
     [plan, boothByNumber],
   );
 
   const entrance = ENTRANCES.find((e) => e.id === entranceId) ?? null;
 
-  // Route points: entrance (if chosen) then each stop, in plan order.
   const routePoints = useMemo<Point[]>(() => {
     const pts: Point[] = [];
     if (entrance) pts.push({ x: entrance.x, y: entrance.y });
@@ -221,13 +225,13 @@ export function PublicMap({
     setTy(0);
   }, []);
 
-  const focusPoint = useCallback((p: Point, toScale = 2.6) => {
+  const focusPoint = useCallback((p: Point, toScale = 2.4) => {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
     const s = clamp(toScale, MIN_SCALE, MAX_SCALE);
     setScale(s);
     setTx(rect.width / 2 - p.x * rect.width * s);
-    setTy(rect.height / 2 - p.y * rect.height * s);
+    setTy(rect.height * 0.4 - p.y * rect.height * s);
   }, []);
 
   function zoomAround(clientX: number, clientY: number, factor: number) {
@@ -242,6 +246,11 @@ export function PublicMap({
       setTy((t) => py - (py - t) * ratio);
       return next;
     });
+  }
+  function zoomCentre(factor: number) {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    zoomAround(rect.left + rect.width / 2, rect.top + rect.height / 2, factor);
   }
 
   function onWheel(event: React.WheelEvent) {
@@ -312,6 +321,13 @@ export function PublicMap({
     [planBooths, focusPoint],
   );
 
+  function pickBooth(b: PublicMapBooth) {
+    setSelectedId(b.id);
+    setSearchOpen(false);
+    setSheetOpen(true);
+    focusPoint(b);
+  }
+
   // --- share --------------------------------------------------------------
   function shareUrl() {
     const qs = new URLSearchParams();
@@ -341,36 +357,164 @@ export function PublicMap({
       // no-op
     }
   }
-  const whatsappHref = () =>
-    `https://wa.me/?text=${encodeURIComponent(`${shareText()}\n${shareUrl()}`)}`;
-  const facebookHref = () =>
-    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl())}`;
 
-  const zoomBtn =
-    "grid size-9 place-items-center rounded-full border border-white/16 bg-white/8 text-white transition-colors hover:bg-white/14";
+  const ctrlBtn =
+    "grid size-11 place-items-center rounded-2xl bg-white text-[var(--app-ink)] shadow-md ring-1 ring-black/5 transition-colors hover:bg-[var(--secondary)]";
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-      {/* ============================================================ MAP */}
-      <div className="grid gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search stall or booth…"
-            aria-label="Search stall or booth"
-            className="h-10 min-w-0 flex-1 rounded-full border border-white/16 bg-white/8 px-4 text-sm text-white outline-none transition-colors placeholder:text-white/45 focus:border-[var(--brand)] focus:bg-white/12"
-          />
+    <div className="relative">
+      {/* ======================================================== THE MAP */}
+      <div
+        ref={viewportRef}
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        className="relative h-[calc(100dvh-8.5rem)] w-full touch-none overflow-hidden bg-[#e8ece4] select-none"
+      >
+        <div
+          style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0" }}
+          className="absolute inset-0"
+        >
+          {activeFloor?.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- floor plan from Storage; overlay needs raw sizing
+            <img
+              src={activeFloor.imageUrl}
+              alt={`${activeFloor.name} floor plan`}
+              className="pointer-events-none absolute inset-0 size-full object-contain"
+              draggable={false}
+            />
+          ) : (
+            // schematic venue ground: soft blocks + a grid, like a printed plan
+            <div className="absolute inset-0" aria-hidden>
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000008_1px,transparent_1px),linear-gradient(to_bottom,#00000008_1px,transparent_1px)] bg-[size:5%_7.5%]" />
+              <div className="absolute inset-[8%] rounded-[2rem] bg-white/45" />
+              <div className="absolute top-[34%] left-[30%] h-[30%] w-[40%] rounded-2xl bg-black/[0.045]" />
+              <span className="absolute top-[46%] left-1/2 -translate-x-1/2 text-center text-[2.2cqw] font-extrabold tracking-[0.12em] text-black/25 uppercase">
+                {venueName ?? eventName}
+              </span>
+            </div>
+          )}
+
+          {/* route line: entrance → stops */}
+          {routePoints.length > 1 ? (
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="pointer-events-none absolute inset-0 size-full"
+              aria-hidden
+            >
+              <polyline
+                points={routePoints.map((p) => `${p.x * 100},${p.y * 100}`).join(" ")}
+                fill="none"
+                stroke="var(--brand)"
+                strokeWidth={3}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                strokeDasharray="5 4"
+                vectorEffect="non-scaling-stroke"
+                opacity={0.85}
+              />
+            </svg>
+          ) : null}
+
+          {/* entrances */}
+          {ENTRANCES.map((e) => {
+            const active = e.id === entranceId;
+            return (
+              <button
+                key={e.id}
+                type="button"
+                data-booth
+                onClick={() => setEntranceId((cur) => (cur === e.id ? null : e.id))}
+                style={{ left: `${e.x * 100}%`, top: `${e.y * 100}%` }}
+                className={cn(
+                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-1 text-[10px] font-bold whitespace-nowrap shadow-sm transition-colors",
+                  active
+                    ? "border-[var(--brand)] bg-[var(--brand)] text-[var(--brand-ink)]"
+                    : "border-black/10 bg-white/95 text-[var(--app-ink)] hover:bg-white",
+                )}
+              >
+                <span
+                  style={{ transform: `scale(${1 / Math.max(1, scale)})` }}
+                  className="inline-block"
+                >
+                  ▟ {e.label}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* stalls */}
+          {floorBooths.map((booth) => {
+            const color = booth.zoneId
+              ? (zoneColorById.get(booth.zoneId) ?? BOOTH_STATUS_COLORS[booth.status])
+              : BOOTH_STATUS_COLORS[booth.status];
+            const dimmed = isDimmed(booth);
+            const isSelected = booth.id === selectedId;
+            const planIdx = planIndexByNumber.get(booth.boothNumber.toLowerCase());
+            const isStep = step !== null && planBooths[step]?.id === booth.id;
+            return (
+              <button
+                key={booth.id}
+                type="button"
+                data-booth
+                onClick={() => pickBooth(booth)}
+                style={{
+                  left: `${(booth.x - booth.width / 2) * 100}%`,
+                  top: `${(booth.y - booth.height / 2) * 100}%`,
+                  width: `${booth.width * 100}%`,
+                  height: `${booth.height * 100}%`,
+                  transform: `rotate(${booth.rotation}deg)`,
+                  backgroundColor: color,
+                  opacity: dimmed ? 0.3 : 1,
+                  boxShadow: isStep
+                    ? "0 0 0 3px var(--brand)"
+                    : isSelected
+                      ? "0 0 0 2.5px #1b1a19"
+                      : undefined,
+                }}
+                className="absolute flex items-center justify-center rounded-[4px] border border-black/25 text-[9px] font-bold text-black/75"
+                aria-label={`Booth ${booth.boothNumber}${booth.merchantName ? `, ${booth.merchantName}` : ""}`}
+              >
+                <span
+                  className="pointer-events-none max-w-full truncate px-0.5"
+                  style={{ transform: `scale(${1 / Math.max(1, scale)})` }}
+                >
+                  {booth.boothNumber}
+                </span>
+                {planIdx !== undefined ? (
+                  <span
+                    className="pointer-events-none absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-[var(--brand)] text-[8px] font-extrabold text-[var(--brand-ink)] shadow"
+                    style={{ transform: `scale(${1 / Math.max(1, scale)})` }}
+                  >
+                    {planIdx + 1}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* status chip — top left, over the map */}
+        <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 ring-black/5">
+          <span className="size-2 rounded-full bg-emerald-500" aria-hidden />
+          {floorBooths.length} stalls · {zones.length} zones
+        </div>
+
+        {/* floating control stack — top right */}
+        <div className="absolute top-3 right-3 grid gap-2">
           {floors.length > 1 ? (
             <select
               value={activeFloorId}
               onChange={(e) => {
                 setActiveFloorId(e.target.value);
                 resetView();
+                setSelectedId(null);
               }}
               aria-label="Floor"
-              className="h-10 rounded-full border border-white/16 bg-white/8 px-3 text-sm text-white outline-none [&>option]:bg-[#26123f]"
+              className="text-foreground h-11 rounded-2xl bg-white px-3 text-sm font-semibold shadow-md ring-1 ring-black/5 outline-none"
             >
               {floors.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -379,190 +523,33 @@ export function PublicMap({
               ))}
             </select>
           ) : null}
-          <div className="flex items-center gap-1.5">
-            <button type="button" aria-label="Zoom out" className={zoomBtn} onClick={() => zoomAround(0, 0, 1 / 1.3)}>
-              −
-            </button>
-            <button type="button" aria-label="Zoom in" className={zoomBtn} onClick={() => zoomAround(0, 0, 1.3)}>
-              +
-            </button>
-            <button
-              type="button"
-              onClick={resetView}
-              className="rounded-full border border-white/16 bg-white/8 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/14"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-
-        <div
-          ref={viewportRef}
-          onWheel={onWheel}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          style={{ aspectRatio: String(aspect) }}
-          className="relative w-full touch-none overflow-hidden rounded-2xl border border-white/12 bg-[#160a29] select-none"
-        >
-          <div
-            style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0" }}
-            className="absolute inset-0"
+          <button type="button" aria-label="Zoom in" className={ctrlBtn} onClick={() => zoomCentre(1.35)}>
+            <Plus className="size-5" aria-hidden />
+          </button>
+          <button type="button" aria-label="Zoom out" className={ctrlBtn} onClick={() => zoomCentre(1 / 1.35)}>
+            <Minus className="size-5" aria-hidden />
+          </button>
+          <button type="button" aria-label="Fit map" className={ctrlBtn} onClick={resetView}>
+            <Maximize2 className="size-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Reset view and filters"
+            className={ctrlBtn}
+            onClick={() => {
+              resetView();
+              setZoneFilter(null);
+              setQuery("");
+              setSelectedId(null);
+            }}
           >
-            {activeFloor?.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- floor plan from Storage; overlay needs raw sizing
-              <img
-                src={activeFloor.imageUrl}
-                alt={`${activeFloor.name} floor plan`}
-                className="pointer-events-none absolute inset-0 size-full object-contain"
-                draggable={false}
-              />
-            ) : (
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff14_1px,transparent_1px),linear-gradient(to_bottom,#ffffff14_1px,transparent_1px)] bg-[size:5%_7.5%]" />
-            )}
-
-            {/* route lines: entrance → stops, in plan order */}
-            {routePoints.length > 1 ? (
-              <svg
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                className="pointer-events-none absolute inset-0 size-full"
-                aria-hidden
-              >
-                <polyline
-                  points={routePoints.map((p) => `${p.x * 100},${p.y * 100}`).join(" ")}
-                  fill="none"
-                  stroke="var(--neon-lime, #c6f24e)"
-                  strokeWidth={2}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  strokeDasharray="4 3"
-                  vectorEffect="non-scaling-stroke"
-                  opacity={0.9}
-                />
-              </svg>
-            ) : null}
-
-            {/* entrances */}
-            {entrance || plan.length === 0
-              ? ENTRANCES.map((e) => {
-                  const active = e.id === entranceId;
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      data-booth
-                      onClick={() => setEntranceId((cur) => (cur === e.id ? null : e.id))}
-                      style={{ left: `${e.x * 100}%`, top: `${e.y * 100}%` }}
-                      className={cn(
-                        "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-1 text-[10px] font-bold whitespace-nowrap transition-colors",
-                        active
-                          ? "border-[var(--neon-lime)] bg-[var(--neon-lime)] text-[#14061f]"
-                          : "border-white/25 bg-black/55 text-white/85 backdrop-blur hover:bg-black/70",
-                      )}
-                    >
-                      <span style={{ transform: `scale(${1 / Math.max(1, scale)})` }} className="inline-block">
-                        ▟ {e.label}
-                      </span>
-                    </button>
-                  );
-                })
-              : null}
-
-            {/* booths */}
-            {floorBooths.map((booth) => {
-              const color = booth.zoneId
-                ? (zoneColorById.get(booth.zoneId) ?? BOOTH_STATUS_COLORS[booth.status])
-                : BOOTH_STATUS_COLORS[booth.status];
-              const dimmed = isDimmed(booth);
-              const isSelected = booth.id === selectedId;
-              const planIdx = planIndexByNumber.get(booth.boothNumber.toLowerCase());
-              const isStep = step !== null && planBooths[step]?.id === booth.id;
-              return (
-                <button
-                  key={booth.id}
-                  type="button"
-                  data-booth
-                  onClick={() => setSelectedId(booth.id)}
-                  style={{
-                    left: `${(booth.x - booth.width / 2) * 100}%`,
-                    top: `${(booth.y - booth.height / 2) * 100}%`,
-                    width: `${booth.width * 100}%`,
-                    height: `${booth.height * 100}%`,
-                    transform: `rotate(${booth.rotation}deg)`,
-                    backgroundColor: dimmed ? `${color}55` : `${color}e6`,
-                    borderColor: color,
-                    opacity: dimmed ? 0.4 : 1,
-                    boxShadow: isStep ? `0 0 0 3px #fff, 0 0 16px ${color}` : undefined,
-                  }}
-                  className={cn(
-                    "absolute flex items-center justify-center rounded-md border text-[9px] font-bold text-[#14061f]",
-                    booth.merchantSlug ? "cursor-pointer" : "cursor-default",
-                    isSelected && !isStep && "ring-2 ring-white",
-                  )}
-                  aria-label={`Booth ${booth.boothNumber}${booth.merchantName ? `, ${booth.merchantName}` : ""}`}
-                >
-                  <span
-                    className="pointer-events-none max-w-full truncate px-0.5"
-                    style={{ transform: `scale(${1 / Math.max(1, scale)})` }}
-                  >
-                    {booth.boothNumber}
-                  </span>
-                  {planIdx !== undefined ? (
-                    <span
-                      className="pointer-events-none absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-[var(--neon-lime)] text-[8px] font-extrabold text-[#14061f]"
-                      style={{ transform: `scale(${1 / Math.max(1, scale)})` }}
-                    >
-                      {planIdx + 1}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* stop counter overlay while walking a route */}
-          {step !== null && planBooths.length > 0 ? (
-            <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-full border border-white/15 bg-black/70 px-3 py-2 text-sm backdrop-blur">
-              <button
-                type="button"
-                onClick={() => goToStep(step - 1)}
-                disabled={step === 0}
-                className="rounded-full px-3 py-1 font-semibold text-white disabled:opacity-40"
-              >
-                ← Prev
-              </button>
-              <span className="text-center text-xs text-white/80">
-                Stop <span className="font-bold text-[var(--neon-lime)]">{step + 1}</span> / {planBooths.length}
-                <span className="block truncate font-semibold text-white">
-                  {planBooths[step]?.merchantName ?? planBooths[step]?.name ?? planBooths[step]?.boothNumber}
-                </span>
-              </span>
-              {step + 1 < planBooths.length ? (
-                <button
-                  type="button"
-                  onClick={() => goToStep(step + 1)}
-                  className="rounded-full bg-[var(--neon-lime)] px-3 py-1 font-bold text-[#14061f]"
-                >
-                  Next →
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setStep(null)}
-                  className="rounded-full bg-white/15 px-3 py-1 font-bold text-white"
-                >
-                  Done
-                </button>
-              )}
-            </div>
-          ) : null}
+            <RotateCw className="size-5" aria-hidden />
+          </button>
         </div>
 
-        {/* zone legend / filter */}
+        {/* zone legend / filter — bottom left, above the sheet */}
         {zones.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="absolute bottom-3 left-3 flex max-w-[70%] flex-wrap gap-1.5">
             {zones.map((z) => {
               const on = zoneFilter === z.id;
               return (
@@ -572,10 +559,10 @@ export function PublicMap({
                   onClick={() => setZoneFilter((cur) => (cur === z.id ? null : z.id))}
                   aria-pressed={on}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ring-1 transition-colors",
                     on
-                      ? "border-white/40 bg-white/15 text-white"
-                      : "border-white/12 bg-white/5 text-white/70 hover:bg-white/10",
+                      ? "bg-[var(--app-ink)] text-white ring-transparent"
+                      : "bg-white/95 text-[var(--app-ink)] ring-black/5 hover:bg-white",
                   )}
                 >
                   <span
@@ -587,228 +574,407 @@ export function PublicMap({
                 </button>
               );
             })}
-            {zoneFilter ? (
+          </div>
+        ) : null}
+
+        {/* step bar while walking a route */}
+        {step !== null && planBooths.length > 0 ? (
+          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-2xl bg-white/97 px-3 py-2 text-sm shadow-lg ring-1 ring-black/5">
+            <button
+              type="button"
+              onClick={() => goToStep(step - 1)}
+              disabled={step === 0}
+              className="text-foreground rounded-full px-3 py-1 font-semibold disabled:opacity-40"
+            >
+              ← Prev
+            </button>
+            <span className="text-muted-foreground min-w-0 text-center text-xs">
+              Stop <span className="font-bold text-[var(--brand)]">{step + 1}</span> /{" "}
+              {planBooths.length}
+              <span className="text-foreground block truncate font-semibold">
+                {planBooths[step]?.merchantName ?? planBooths[step]?.boothNumber}
+              </span>
+            </span>
+            {step + 1 < planBooths.length ? (
               <button
                 type="button"
-                onClick={() => setZoneFilter(null)}
-                className="text-xs font-semibold text-white/55 underline-offset-4 hover:underline"
+                onClick={() => goToStep(step + 1)}
+                className="rounded-full bg-[var(--brand)] px-3 py-1 font-bold text-[var(--brand-ink)]"
               >
-                Clear
+                Next →
               </button>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStep(null)}
+                className="bg-secondary text-foreground rounded-full px-3 py-1 font-bold"
+              >
+                Exit plan
+              </button>
+            )}
           </div>
         ) : null}
       </div>
 
-      {/* ======================================================== SIDEBAR */}
-      <aside className="grid content-start gap-4">
-        {/* selected booth detail */}
-        {selected ? (
-          <BoothDetail
-            baseHref={baseHref}
-            booth={selected}
-            zoneColor={selected.zoneId ? zoneColorById.get(selected.zoneId) : undefined}
-            zoneName={selected.zoneId ? zoneById.get(selected.zoneId)?.name : undefined}
-            inPlan={inPlan(selected)}
-            onTogglePlan={() => togglePlan(selected)}
-            onClose={() => setSelectedId(null)}
-          />
-        ) : (
-          <p className="neon-surface rounded-2xl px-4 py-3 text-sm text-white/60">
-            Tap a stall on the map for details, or add stalls to your food plan.
-          </p>
+      {/* ==================================================== BOTTOM SHEET */}
+      <section
+        className={cn(
+          "fixed inset-x-0 bottom-16 z-30 mx-auto max-w-2xl rounded-t-3xl bg-white shadow-[0_-8px_30px_-12px_#1b1a1959] ring-1 ring-black/5 transition-transform",
+          sheetOpen ? "translate-y-0" : "translate-y-[calc(100%-3.5rem)]",
         )}
+      >
+        <button
+          type="button"
+          onClick={() => setSheetOpen((o) => !o)}
+          aria-expanded={sheetOpen}
+          className="flex w-full items-center justify-center py-3"
+          aria-label={sheetOpen ? "Collapse panel" : "Expand panel"}
+        >
+          <span className="h-1.5 w-10 rounded-full bg-black/15" aria-hidden />
+        </button>
 
-        {/* food plan */}
-        <div className="neon-surface rounded-2xl p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-[13px] font-bold tracking-[0.14em] text-[var(--neon-lime)] uppercase">
-              My food plan
-            </h2>
-            {plan.length > 0 ? (
-              <button
-                type="button"
-                onClick={clearPlan}
-                className="text-xs font-semibold text-white/55 underline-offset-4 hover:underline"
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
-
-          {/* entrance picker */}
-          <label className="mt-3 block text-xs font-semibold text-white/60">Start from</label>
-          <select
-            value={entranceId ?? ""}
-            onChange={(e) => setEntranceId(e.target.value || null)}
-            className="mt-1 h-9 w-full rounded-lg border border-white/16 bg-white/8 px-3 text-sm text-white outline-none focus:border-[var(--brand)] [&>option]:bg-[#26123f]"
-          >
-            <option value="">Choose an entrance…</option>
-            {ENTRANCES.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.label}
-              </option>
-            ))}
-          </select>
-
-          {plan.length === 0 ? (
-            <p className="mt-3 text-sm text-white/50">
-              No stops yet. Tap a stall → <span className="font-semibold text-white/70">Add to plan</span> to build a
-              route.
-            </p>
-          ) : (
+        <div className="max-h-[46dvh] overflow-y-auto px-4 pb-5">
+          {searchOpen ? (
+            /* ---- search mode ---- */
             <>
-              <ol className="mt-3 grid gap-1.5">
-                {planBooths.map((b, i) => (
-                  <li
-                    key={b.id}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm transition-colors",
-                      step === i
-                        ? "border-[var(--neon-lime)]/60 bg-[var(--neon-lime)]/12"
-                        : "border-white/10 bg-white/5",
-                    )}
-                  >
-                    <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[var(--neon-lime)] text-[10px] font-extrabold text-[#14061f]">
-                      {i + 1}
-                    </span>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search
+                    className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+                    aria-hidden
+                  />
+                  <input
+                    autoFocus
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search merchants or stalls"
+                    aria-label="Search merchants or stalls"
+                    className="border-border text-foreground placeholder:text-muted-foreground h-11 w-full rounded-full border pr-4 pl-10 text-sm outline-none focus:border-[var(--brand)]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(false)}
+                  className="text-muted-foreground hover:text-foreground px-2 text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+              </div>
+              <ul className="mt-3 grid gap-1.5">
+                {searchResults.map((b) => (
+                  <li key={b.id}>
                     <button
                       type="button"
-                      onClick={() => goToStep(i)}
-                      className="min-w-0 flex-1 text-left"
+                      onClick={() => pickBooth(b)}
+                      className="border-border hover:bg-secondary flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left"
                     >
-                      <span className="block truncate font-semibold text-white">
-                        {b.merchantName ?? b.name ?? "Stall"}
+                      <span
+                        className="grid size-8 shrink-0 place-items-center rounded-lg text-[10px] font-bold text-black/70"
+                        style={{
+                          backgroundColor: b.zoneId
+                            ? (zoneColorById.get(b.zoneId) ?? "#e5e7eb")
+                            : "#e5e7eb",
+                        }}
+                      >
+                        {b.boothNumber}
                       </span>
-                      <span className="text-xs text-white/50">Booth {b.boothNumber}</span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${b.merchantName ?? b.boothNumber} from plan`}
-                      onClick={() => togglePlan(b)}
-                      className="shrink-0 rounded-full px-1.5 text-white/45 hover:text-white"
-                    >
-                      ✕
+                      <span className="min-w-0 flex-1">
+                        <span className="text-foreground block truncate text-sm font-semibold">
+                          {b.merchantName ?? b.name ?? "Unassigned"}
+                        </span>
+                        {b.zoneId ? (
+                          <span className="text-muted-foreground block text-xs">
+                            {zoneById.get(b.zoneId)?.name}
+                          </span>
+                        ) : null}
+                      </span>
                     </button>
                   </li>
                 ))}
-              </ol>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
+                {normalizedQuery && searchResults.length === 0 ? (
+                  <li className="text-muted-foreground py-6 text-center text-sm">
+                    No stalls match “{query}”.
+                  </li>
+                ) : null}
+              </ul>
+            </>
+          ) : selected ? (
+            /* ---- selected stall ---- */
+            <div className="grid gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="app-eyebrow">Booth {selected.boothNumber}</p>
+                  <h2 className="text-foreground mt-0.5 truncate text-xl font-extrabold tracking-tight">
+                    {selected.listingTitle || selected.merchantName || "Unassigned booth"}
+                  </h2>
+                  {selected.zoneId ? (
+                    <p className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm">
+                      <span
+                        aria-hidden
+                        className="size-2.5 rounded-full"
+                        style={{ backgroundColor: zoneColorById.get(selected.zoneId) }}
+                      />
+                      {zoneById.get(selected.zoneId)?.name}
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  onClick={optimiseRoute}
-                  className="neon-cta col-span-2 px-4 py-2.5 text-sm"
+                  aria-label="Close"
+                  onClick={() => setSelectedId(null)}
+                  className="text-muted-foreground hover:text-foreground shrink-0"
                 >
-                  {entrance ? `Plan route from ${entrance.label}` : "Plan the best route"}
+                  <X className="size-5" aria-hidden />
                 </button>
-                {step === null && planBooths.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => goToStep(0)}
-                    className="col-span-2 rounded-full border border-white/16 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/14"
-                  >
-                    ▶ Start walking
-                  </button>
-                ) : null}
               </div>
 
-              {/* share */}
-              <div className="mt-3 border-t border-white/10 pt-3">
-                <p className="mb-2 text-xs font-semibold text-white/60">Share this route</p>
-                <div className="grid grid-cols-3 gap-2">
+              {selected.merchantSlug ? (
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => window.open(whatsappHref(), "_blank", "noopener")}
-                    className="rounded-full border border-white/16 bg-white/8 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-white/14"
+                    onClick={() => togglePlan(selected)}
+                    className={cn(
+                      "rounded-full px-4 py-2.5 text-sm font-bold",
+                      inPlan(selected)
+                        ? "border-border bg-secondary text-foreground border"
+                        : "app-cta",
+                    )}
                   >
-                    WhatsApp
+                    {inPlan(selected) ? "✓ In plan — remove" : "+ Add to food plan"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => window.open(facebookHref(), "_blank", "noopener")}
-                    className="rounded-full border border-white/16 bg-white/8 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-white/14"
+                  <Link
+                    href={`${baseHref}/${selected.merchantSlug}`}
+                    className="border-border text-foreground hover:bg-secondary rounded-full border px-4 py-2.5 text-sm font-semibold"
                   >
-                    Facebook
-                  </button>
-                  <button
-                    type="button"
-                    onClick={shareNative}
-                    className="rounded-full border border-white/16 bg-white/8 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-white/14"
-                  >
-                    Copy
-                  </button>
+                    View stall →
+                  </Link>
                 </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">No merchant here yet.</p>
+              )}
+              <PlanPanel
+                plan={plan}
+                planBooths={planBooths}
+                entranceId={entranceId}
+                setEntranceId={setEntranceId}
+                step={step}
+                goToStep={goToStep}
+                togglePlan={togglePlan}
+                clearPlan={clearPlan}
+                optimiseRoute={optimiseRoute}
+                shareNative={shareNative}
+                shareUrl={shareUrl}
+                shareText={shareText}
+                entrance={entrance}
+                compact
+              />
+            </div>
+          ) : (
+            /* ---- default: the kchfest-style prompt ---- */
+            <div className="grid gap-3">
+              <div>
+                <p className="app-eyebrow">Floor plan</p>
+                <h2 className="text-foreground mt-1 text-xl font-extrabold tracking-tight">
+                  Find a stall or merchant
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  All {floorBooths.length} stall positions are mapped. Search or select a stall to
+                  see its details and plan a route from any of the four entrances.
+                </p>
               </div>
-            </>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="app-cta w-full px-5 py-3.5 text-[15px]"
+              >
+                <Search className="size-4" aria-hidden /> Search merchants or stalls
+              </button>
+              <PlanPanel
+                plan={plan}
+                planBooths={planBooths}
+                entranceId={entranceId}
+                setEntranceId={setEntranceId}
+                step={step}
+                goToStep={goToStep}
+                togglePlan={togglePlan}
+                clearPlan={clearPlan}
+                optimiseRoute={optimiseRoute}
+                shareNative={shareNative}
+                shareUrl={shareUrl}
+                shareText={shareText}
+                entrance={entrance}
+              />
+            </div>
           )}
         </div>
-      </aside>
+      </section>
     </div>
   );
 }
 
-function BoothDetail({
-  baseHref,
-  booth,
-  zoneColor,
-  zoneName,
-  inPlan,
-  onTogglePlan,
-  onClose,
+/** The food plan block — shown in the sheet under both the prompt and a stall. */
+function PlanPanel({
+  plan,
+  planBooths,
+  entranceId,
+  setEntranceId,
+  step,
+  goToStep,
+  togglePlan,
+  clearPlan,
+  optimiseRoute,
+  shareNative,
+  shareUrl,
+  shareText,
+  entrance,
+  compact = false,
 }: {
-  baseHref: string;
-  booth: PublicMapBooth;
-  zoneColor?: string;
-  zoneName?: string;
-  inPlan: boolean;
-  onTogglePlan: () => void;
-  onClose: () => void;
+  plan: string[];
+  planBooths: PublicMapBooth[];
+  entranceId: string | null;
+  setEntranceId: (v: string | null) => void;
+  step: number | null;
+  goToStep: (i: number) => void;
+  togglePlan: (b: PublicMapBooth) => void;
+  clearPlan: () => void;
+  optimiseRoute: () => void;
+  shareNative: () => void;
+  shareUrl: () => string;
+  shareText: () => string;
+  entrance: Entrance | null;
+  compact?: boolean;
 }) {
+  if (compact && plan.length === 0) return null;
+
   return (
-    <div className="neon-surface grid gap-2 rounded-2xl p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-bold text-white">
-            Booth {booth.boothNumber}
-          </span>
-          {zoneName ? (
-            <span className="flex items-center gap-1 text-xs text-white/60">
-              <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: zoneColor ?? "transparent" }} />
-              {zoneName}
-            </span>
-          ) : null}
-        </div>
-        <button type="button" aria-label="Close" onClick={onClose} className="shrink-0 text-white/45 hover:text-white">
-          ✕
-        </button>
-      </div>
-      <p className="font-bold tracking-tight text-white">
-        {booth.listingTitle || booth.merchantName || booth.name || "Unassigned booth"}
-      </p>
-      {booth.merchantSlug ? (
-        <div className="flex flex-wrap gap-2">
+    <div className="border-border border-t pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="app-eyebrow">
+          My food plan{plan.length ? ` · ${plan.length}` : ""}
+        </h3>
+        {plan.length > 0 ? (
           <button
             type="button"
-            onClick={onTogglePlan}
+            onClick={clearPlan}
+            className="text-muted-foreground hover:text-foreground text-xs font-semibold underline-offset-4 hover:underline"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <span className="text-muted-foreground self-center text-xs font-semibold">Start from</span>
+        {ENTRANCES.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => setEntranceId(entranceId === e.id ? null : e.id)}
+            aria-pressed={entranceId === e.id}
             className={cn(
-              "rounded-full px-4 py-2 text-sm font-bold transition-colors",
-              inPlan
-                ? "border border-white/16 bg-white/8 text-white hover:bg-white/14"
-                : "neon-cta",
+              "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+              entranceId === e.id
+                ? "border-[var(--brand)] bg-[var(--brand)] text-[var(--brand-ink)]"
+                : "border-border text-foreground hover:bg-secondary",
             )}
           >
-            {inPlan ? "✓ In plan — remove" : "+ Add to plan"}
+            {e.label}
           </button>
-          <Link
-            href={`${baseHref}/${booth.merchantSlug}`}
-            className="rounded-full border border-white/16 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/14"
-          >
-            View stall →
-          </Link>
-        </div>
+        ))}
+      </div>
+
+      {plan.length === 0 ? (
+        <p className="text-muted-foreground mt-2 text-sm">
+          Tap a stall on the map, then <span className="text-foreground font-semibold">Add to
+          food plan</span> to build a route.
+        </p>
       ) : (
-        <p className="text-sm text-white/50">No merchant here yet.</p>
+        <>
+          <ol className="mt-2.5 grid gap-1.5">
+            {planBooths.map((b, i) => (
+              <li
+                key={b.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm",
+                  step === i
+                    ? "border-[var(--brand)] bg-[color-mix(in_srgb,var(--brand)_8%,#fff)]"
+                    : "border-border",
+                )}
+              >
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[var(--brand)] text-[10px] font-extrabold text-[var(--brand-ink)]">
+                  {i + 1}
+                </span>
+                <button type="button" onClick={() => goToStep(i)} className="min-w-0 flex-1 text-left">
+                  <span className="text-foreground block truncate font-semibold">
+                    {b.merchantName ?? b.name ?? "Stall"}
+                  </span>
+                  <span className="text-muted-foreground text-xs">Booth {b.boothNumber}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${b.merchantName ?? b.boothNumber} from plan`}
+                  onClick={() => togglePlan(b)}
+                  className="text-muted-foreground hover:text-foreground shrink-0 px-1.5"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-3 grid gap-2">
+            <button type="button" onClick={optimiseRoute} className="app-cta px-4 py-2.5 text-sm">
+              <Expand className="size-4" aria-hidden />
+              {entrance ? `Plan route from ${entrance.label}` : "Plan the best route"}
+            </button>
+            {step === null && planBooths.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => goToStep(0)}
+                className="border-border text-foreground hover:bg-secondary rounded-full border px-4 py-2.5 text-sm font-semibold"
+              >
+                ▶ Start walking
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                window.open(
+                  `https://wa.me/?text=${encodeURIComponent(`${shareText()}\n${shareUrl()}`)}`,
+                  "_blank",
+                  "noopener",
+                )
+              }
+              className="border-border text-foreground hover:bg-secondary rounded-full border py-2 text-center text-xs font-semibold"
+            >
+              WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                window.open(
+                  `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl())}`,
+                  "_blank",
+                  "noopener",
+                )
+              }
+              className="border-border text-foreground hover:bg-secondary rounded-full border py-2 text-center text-xs font-semibold"
+            >
+              Facebook
+            </button>
+            <button
+              type="button"
+              onClick={shareNative}
+              className="border-border text-foreground hover:bg-secondary rounded-full border py-2 text-center text-xs font-semibold"
+            >
+              Copy
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

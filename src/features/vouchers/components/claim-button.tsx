@@ -30,20 +30,18 @@ export function ClaimButton({
 
   if (claimed && !result?.code) {
     return (
-      <span className="text-sm font-semibold text-[var(--neon-mint)]">
-        ✓ Claimed — see My vouchers
-      </span>
+      <span className="text-sm font-semibold text-emerald-600">✓ Claimed — see My vouchers</span>
     );
   }
 
   if (result?.code) {
     return (
       <div className="grid gap-1">
-        <span className="text-sm font-semibold text-[var(--neon-mint)]">✓ Claimed</span>
-        <span className="font-mono text-lg font-bold tracking-widest text-white">
+        <span className="text-sm font-semibold text-emerald-600">✓ Claimed</span>
+        <span className="text-foreground font-mono text-lg font-bold tracking-widest">
           {result.code}
         </span>
-        <span className="text-xs text-white/50">Show this code at the stall.</span>
+        <span className="text-muted-foreground text-xs">Show this code at the stall.</span>
       </div>
     );
   }
@@ -67,8 +65,8 @@ export function ClaimButton({
         }}
         className={
           claimable
-            ? "neon-cta w-fit px-5 py-2.5 text-sm disabled:opacity-50"
-            : "w-fit rounded-full border border-white/16 bg-white/8 px-5 py-2.5 text-sm font-semibold text-white/60"
+            ? "app-cta w-fit px-5 py-2.5 text-sm disabled:opacity-50"
+            : "border-border bg-secondary text-muted-foreground w-fit rounded-full border px-5 py-2.5 text-sm font-semibold"
         }
       >
         {pending ? "Claiming…" : claimable ? "Claim" : "Not available"}

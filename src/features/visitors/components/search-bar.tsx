@@ -50,7 +50,7 @@ export function SearchBar({
       className="relative"
     >
       <Search
-        className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-white/50"
+        className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2"
         aria-hidden
       />
       <input
@@ -60,7 +60,7 @@ export function SearchBar({
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         aria-label="Search merchants"
-        className="h-12 w-full rounded-full border border-white/16 bg-white/8 pr-4 pl-11 text-sm text-white outline-none transition-colors placeholder:text-white/45 focus:border-[var(--brand)] focus:bg-white/12"
+        className="border-border bg-card text-foreground placeholder:text-muted-foreground h-12 w-full rounded-full border pr-4 pl-11 text-sm shadow-sm outline-none transition-colors focus:border-[var(--brand)]"
       />
     </form>
   );

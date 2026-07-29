@@ -12,7 +12,7 @@ import type { DirectoryFacets } from "@/server/services/directory.service";
  */
 
 const SELECT_CLASS =
-  "h-9 rounded-full border border-white/16 bg-white/8 px-3 text-sm text-white outline-none focus:border-[var(--brand)] [&>option]:bg-[#26123f] [&>option]:text-white";
+  "border-border bg-card text-foreground h-9 rounded-full border px-3 text-sm shadow-sm outline-none focus:border-[var(--brand)]";
 
 export function FilterBar({ facets }: { facets: DirectoryFacets }) {
   const router = useRouter();
@@ -39,10 +39,10 @@ export function FilterBar({ facets }: { facets: DirectoryFacets }) {
 
   const chip = (active: boolean) =>
     cn(
-      "rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors",
+      "rounded-full border px-3.5 py-1.5 text-sm font-semibold shadow-sm transition-colors",
       active
-        ? "border-[var(--neon-lime)] bg-[var(--neon-lime)] text-[#14061f]"
-        : "border-white/16 bg-white/8 text-white hover:bg-white/14",
+        ? "border-[var(--brand)] bg-[var(--brand)] text-[var(--brand-ink)]"
+        : "border-border bg-card text-foreground hover:bg-secondary",
     );
 
   return (

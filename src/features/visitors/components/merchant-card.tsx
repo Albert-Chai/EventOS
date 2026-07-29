@@ -4,7 +4,7 @@ import { MediaImage } from "@/components/media/media-image";
 import { formatPrice } from "@/features/merchants/format";
 
 import { FavouriteButton } from "./favourite-button";
-import { artStyle } from "../neon";
+import { artStyle } from "../theme";
 
 /**
  * The one merchant card used across the directory, favourites, and search
@@ -12,10 +12,10 @@ import { artStyle } from "../neon";
  * depending on the event). The whole card links to the listing; the favourite
  * heart sits alongside the link (not nested inside it) so the markup stays valid.
  *
- * Night Market Neon: a glass surface with a colourful gradient thumbnail (its
- * hue derived from the slug so it's stable) when the merchant has no logo. The
- * directory supplies the price/halal/promo extras; the favourites and
- * recent-views lists omit them, so they're all optional.
+ * A white app card with a colourful gradient thumbnail (its hue derived from the
+ * slug so it's stable) when the merchant has no logo. The directory supplies the
+ * price/halal/promo extras; the favourites and recent-views lists omit them, so
+ * they're all optional.
  */
 export type MerchantCardData = {
   participationId: string;
@@ -58,7 +58,7 @@ export function MerchantCard({
     <div className="relative">
       <Link
         href={`${baseHref}/${card.merchantSlug}`}
-        className="neon-surface neon-surface-hover flex gap-3 rounded-2xl p-3 transition-colors"
+        className="app-card app-card-hover flex gap-3 p-3"
       >
         {card.logoUrl ? (
           <MediaImage
@@ -71,7 +71,7 @@ export function MerchantCard({
           />
         ) : (
           <span
-            className="neon-art size-14 shrink-0 rounded-xl text-2xl"
+            className="app-art size-14 shrink-0 rounded-xl text-2xl"
             style={artStyle(card.merchantSlug)}
             aria-hidden
           >
@@ -81,38 +81,36 @@ export function MerchantCard({
         <div className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             {featured ? (
-              <span className="shrink-0 rounded-full bg-[var(--neon-lime)] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-[#14061f] uppercase">
+              <span className="shrink-0 rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-[var(--brand-ink)] uppercase">
                 ★ Featured
               </span>
             ) : null}
-            <span className="truncate font-bold tracking-tight text-white">{title}</span>
+            <span className="text-foreground truncate font-bold tracking-tight">{title}</span>
           </span>
           {card.categoryName ? (
-            <span className="block text-xs text-[var(--neon-mint)]">{card.categoryName}</span>
+            <span className="block text-xs font-semibold text-[var(--brand)]">
+              {card.categoryName}
+            </span>
           ) : null}
           {card.listingDescription ? (
-            <span className="line-clamp-2 block text-sm text-white/55">
+            <span className="text-muted-foreground line-clamp-2 block text-sm">
               {card.listingDescription}
             </span>
           ) : null}
           {card.boothNumber || card.hasHalal || card.hasPromo || price ? (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {card.boothNumber ? (
-                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-white/80">
+                <span className="border-border bg-secondary text-foreground/70 rounded-full border px-2 py-0.5 text-[11px] font-medium">
                   📍 {card.boothNumber}
                 </span>
               ) : null}
               {card.hasHalal ? (
-                <span className="rounded-full bg-[var(--neon-mint)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--neon-mint)]">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                   Halal
                 </span>
               ) : null}
-              {card.hasPromo ? (
-                <span className="rounded-full bg-[var(--neon-lime)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--neon-lime)]">
-                  Promo
-                </span>
-              ) : null}
-              {price ? <span className="text-xs text-white/60">from {price}</span> : null}
+              {card.hasPromo ? <span className="app-pill px-2 py-0.5 text-[11px]">Promo</span> : null}
+              {price ? <span className="text-muted-foreground text-xs">from {price}</span> : null}
             </div>
           ) : null}
         </div>

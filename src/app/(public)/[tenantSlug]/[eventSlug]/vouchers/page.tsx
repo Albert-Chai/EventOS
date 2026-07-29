@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { Track } from "@/features/analytics/components/track";
 import { ClaimButton } from "@/features/vouchers/components/claim-button";
-import { brandStyle } from "@/features/visitors/neon";
+import { brandStyle } from "@/features/visitors/theme";
 import { getEventBranding } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicVouchersForRead } from "@/server/services/voucher.service";
@@ -37,22 +37,25 @@ export default async function PublicVouchersPage({ params }: Params) {
   // Vouchers off for this event is indistinguishable from "no such page".
   if (!enabled) notFound();
 
-  const primary = branding?.primaryColor ?? "#ff2d78";
+  const primary = branding?.primaryColor ?? "#e11d48";
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
+    <article className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6" style={brandStyle(primary)}>
       <Track name="voucher_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
 
       <div className="mb-5 grid gap-1">
-        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
+        <Link
+          href={baseHref}
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
           ← {event.name}
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">Vouchers</h1>
+          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Vouchers</h1>
           <Link
             href={`${baseHref}/vouchers/mine`}
-            className="text-sm font-semibold text-[var(--neon-lime)] underline-offset-4 hover:underline"
+            className="text-sm font-semibold text-[var(--brand)] underline-offset-4 hover:underline"
           >
             My vouchers →
           </Link>
@@ -60,41 +63,37 @@ export default async function PublicVouchersPage({ params }: Params) {
       </div>
 
       {vouchers.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-8 text-center">
-          <p className="text-sm font-semibold text-white">No vouchers right now</p>
-          <p className="mt-1 text-sm text-white/55">Check back closer to the event.</p>
+        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+          <p className="text-foreground text-sm font-semibold">No vouchers right now</p>
+          <p className="text-muted-foreground mt-1 text-sm">Check back closer to the event.</p>
         </div>
       ) : (
         <ul className="grid gap-3">
           {vouchers.map((voucher) => {
             const remaining = remainingQuantity(voucher);
             return (
-              <li
-                key={voucher.id}
-                className="neon-surface relative overflow-hidden rounded-2xl p-4"
-              >
-                {/* gradient rail — the ticket edge */}
-                <span
-                  className="absolute inset-y-0 left-0 w-1.5 bg-linear-to-b from-[var(--brand)] to-[var(--neon-violet)]"
-                  aria-hidden
-                />
+              <li key={voucher.id} className="app-card relative overflow-hidden p-4">
+                {/* brand rail — the ticket edge */}
+                <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--brand)]" aria-hidden />
                 <div className="flex flex-wrap items-start justify-between gap-2 pl-2">
                   <div className="min-w-0">
-                    <h2 className="font-bold tracking-tight text-white">{voucher.title}</h2>
+                    <h2 className="text-foreground font-bold tracking-tight">{voucher.title}</h2>
                     {voucher.merchantName ? (
-                      <p className="mt-0.5 text-sm text-white/50">at {voucher.merchantName}</p>
+                      <p className="text-muted-foreground mt-0.5 text-sm">
+                        at {voucher.merchantName}
+                      </p>
                     ) : null}
                   </div>
-                  <span className="shrink-0 rounded-full bg-linear-to-br from-[var(--brand)] to-[var(--neon-tangerine)] px-3 py-1 text-sm font-extrabold text-[#14061f]">
+                  <span className="shrink-0 rounded-full bg-[var(--brand)] px-3 py-1 text-sm font-extrabold text-[var(--brand-ink)]">
                     {describeDiscount(voucher)}
                   </span>
                 </div>
 
                 {voucher.description ? (
-                  <p className="mt-2 pl-2 text-sm text-white/80">{voucher.description}</p>
+                  <p className="text-foreground/80 mt-2 pl-2 text-sm">{voucher.description}</p>
                 ) : null}
                 {voucher.terms ? (
-                  <p className="mt-2 pl-2 text-xs text-white/45">{voucher.terms}</p>
+                  <p className="text-muted-foreground mt-2 pl-2 text-xs">{voucher.terms}</p>
                 ) : null}
 
                 <div className="mt-3 flex flex-wrap items-end justify-between gap-3 pl-2">
@@ -106,7 +105,7 @@ export default async function PublicVouchersPage({ params }: Params) {
                     claimed={voucher.claimed}
                   />
                   {remaining !== null ? (
-                    <span className="text-xs font-medium text-white/50">
+                    <span className="text-muted-foreground text-xs font-medium">
                       {remaining > 0 ? `${remaining} left` : "All claimed"}
                     </span>
                   ) : null}

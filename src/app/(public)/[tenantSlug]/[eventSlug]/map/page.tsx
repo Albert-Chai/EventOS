@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 
 import { Track } from "@/features/analytics/components/track";
 import { PublicMap } from "@/features/booths/components/public-map";
+import { brandStyle } from "@/features/visitors/theme";
 import { listBoothsForEventPublic } from "@/server/db/repositories/booths.repository";
+import { getEventBranding } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listMapFloorsForEventPublic } from "@/server/db/repositories/maps.repository";
 import { listZonesForEventPublic } from "@/server/db/repositories/zones.repository";
@@ -32,11 +34,13 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
-  const [floorRows, boothRows, zones] = await Promise.all([
+  const [floorRows, boothRows, zones, branding] = await Promise.all([
     listMapFloorsForEventPublic(event.id),
     listBoothsForEventPublic(event.id),
     listZonesForEventPublic(event.id),
+    getEventBranding(event.tenantId, event.id),
   ]);
+  const primary = branding?.primaryColor ?? "#e11d48";
 
   const floors = floorRows.map((f) => ({
     id: f.id,
@@ -68,27 +72,32 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
 
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
 
+  // Full-bleed app screen: the map fills the viewport under the shell chrome,
+  // so it gets no page padding and cancels the layout's bottom-nav spacing.
   return (
-    <article className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
+    <article className="-mb-24" style={brandStyle(primary)}>
       <Track name="map_opened" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
-      <div className="mb-4 grid gap-1">
-        <Link href={baseHref} className="text-sm text-white/55 transition-colors hover:text-white">
-          ← {event.name}
-        </Link>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">Floor plan</h1>
-        <p className="text-sm text-white/55">
-          Explore the stalls, then build a food plan: add stops, pick an entrance, and walk your route.
-        </p>
-      </div>
 
       {booths.length === 0 ? (
-        <p className="text-sm text-white/55">
-          The map for this event isn&apos;t ready yet. Check back soon.
-        </p>
+        <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+          <Link
+            href={baseHref}
+            className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+          >
+            ← {event.name}
+          </Link>
+          <h1 className="text-foreground mt-1 text-3xl font-extrabold tracking-tight">
+            Floor plan
+          </h1>
+          <p className="text-muted-foreground mt-4 text-sm">
+            The map for this event isn&apos;t ready yet. Check back soon.
+          </p>
+        </div>
       ) : (
         <PublicMap
           baseHref={baseHref}
           eventName={event.name}
+          venueName={event.venueName}
           floors={floors}
           booths={booths}
           zones={zones}

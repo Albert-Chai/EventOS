@@ -117,155 +117,136 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* =============================================================== NIGHT MARKET NEON
-   The committed visitor look (spec §9, mobile-first). Scoped to `.neon` on the
-   public shell so the dashboard/admin keep the shadcn light system untouched.
+/* ============================================================= FESTIVAL APP SHELL
+   The visitor experience is a light, mobile-first app shell (spec §9): a
+   brand-coloured header + a bottom tab bar around light cards, themed by each
+   event's own brand colour. Scoped to `.appshell` on the public layout so the
+   dashboard/admin keep the default shadcn surfaces.
 
-   Two layers of colour:
-   1. A fixed structural palette — plum ground, lime signal — identical for every
-      event, so the platform reads as one coherent after-dark experience.
-   2. `--brand`, the event's own primaryColor, set inline per event. It leads the
-      hero glow and the primary CTAs, so a food festival glows neon-pink and a
-      teal event glows neon-teal over the same structure (white-label, §1).
+   `--brand` is the event's primaryColor, set inline per event
+   (features/visitors/theme.ts → brandStyle). It drives the header, primary CTAs
+   and accents; the rest of the palette is a fixed light neutral so every event
+   reads as one coherent app (white-label, §1). The shadcn tokens are remapped
+   here, so shared components (badges, inputs, cards) fit with no rewrite. */
+.appshell {
+  /* per-event brand — overridden inline; a warm red is the default */
+  --brand: #e11d48;
+  --brand-ink: #ffffff; /* text/icons on a brand-filled surface */
 
-   The shadcn tokens are remapped here too, so every shared component (badges,
-   buttons, inputs, cards) renders correctly on the dark ground with no rewrite. */
-.neon {
-  /* fixed structural palette */
-  --neon-bg: #1a0b2e;
-  --neon-bg-2: #26123f;
-  --neon-ink: #fff3e6;
-  --neon-dim: #c9a9d6;
-  --neon-lime: #c6f24e; /* signal accent — kickers, "featured", success */
-  --neon-mint: #39d98a;
-  --neon-tangerine: #ff8a3d; /* the warm companion the brand glow melts into */
-  --neon-violet: #7c3aed;
+  /* fixed light palette */
+  --app-bg: #eef0ea; /* soft venue-map grey-green ground */
+  --app-surface: #ffffff;
+  --app-ink: #1b1a19;
+  --app-muted: #6d716b;
+  --app-line: #e5e6e0;
 
-  /* per-event brand — overridden inline; magenta is the default festival hue */
-  --brand: #ff2d78;
-
-  /* remap the shadcn design tokens onto the dark palette */
-  --background: var(--neon-bg);
-  --foreground: var(--neon-ink);
-  --card: color-mix(in srgb, #ffffff 6%, transparent);
-  --card-foreground: var(--neon-ink);
-  --popover: var(--neon-bg-2);
-  --popover-foreground: var(--neon-ink);
+  /* remap the shadcn design tokens onto the light app palette */
+  --background: var(--app-bg);
+  --foreground: var(--app-ink);
+  --card: var(--app-surface);
+  --card-foreground: var(--app-ink);
+  --popover: var(--app-surface);
+  --popover-foreground: var(--app-ink);
   --primary: var(--brand);
-  --primary-foreground: #14061f;
-  --secondary: color-mix(in srgb, #ffffff 10%, transparent);
-  --secondary-foreground: var(--neon-ink);
-  --muted: color-mix(in srgb, #ffffff 7%, transparent);
-  --muted-foreground: var(--neon-dim);
-  --accent: color-mix(in srgb, #ffffff 12%, transparent);
-  --accent-foreground: var(--neon-ink);
-  --destructive: #ff6b8a;
-  --border: color-mix(in srgb, #ffffff 13%, transparent);
-  --input: color-mix(in srgb, #ffffff 16%, transparent);
+  --primary-foreground: var(--brand-ink);
+  --secondary: #f1f2ec;
+  --secondary-foreground: var(--app-ink);
+  --muted: #f1f2ec;
+  --muted-foreground: var(--app-muted);
+  --accent: #f1f2ec;
+  --accent-foreground: var(--app-ink);
+  --destructive: #dc2626;
+  --border: var(--app-line);
+  --input: var(--app-line);
   --ring: var(--brand);
-  --radius: 1rem;
+  --radius: 0.9rem;
 
-  background-color: var(--neon-bg);
-  color: var(--neon-ink);
+  background-color: var(--app-bg);
+  color: var(--app-ink);
 }
 
 @layer components {
-  /* The hero glow: the brand hue leading a fixed festival atmosphere behind it. */
-  .neon-hero {
-    background:
-      radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--brand) 55%, transparent), transparent 60%),
-      radial-gradient(120% 90% at 0% 15%, color-mix(in srgb, var(--neon-tangerine) 38%, transparent), transparent 55%),
-      radial-gradient(140% 120% at 50% 130%, color-mix(in srgb, var(--neon-violet) 55%, transparent), transparent 60%);
+  /* Brand header bar — the app chrome at the top of every visitor screen. */
+  .app-header {
+    background: linear-gradient(
+      135deg,
+      var(--brand),
+      color-mix(in srgb, var(--brand) 74%, #ff8a3d)
+    );
+    color: var(--brand-ink);
   }
-  /* Big display headline, gradient-filled toward the brand. */
-  .neon-display {
-    background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--brand) 35%, #ffffff));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    text-shadow: 0 0 40px color-mix(in srgb, var(--brand) 30%, transparent);
-  }
-  /* Lime kicker eyebrow. */
-  .neon-kick {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
+  /* Small-caps brand eyebrow over a section. */
+  .app-eyebrow {
     font-size: 0.6875rem;
     font-weight: 800;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #14061f;
-    background: var(--neon-lime);
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
+    color: var(--brand);
   }
-  /* Glass meta pill. */
-  .neon-pill {
+  /* The one white card used across the app. */
+  .app-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-line);
+    border-radius: 1rem;
+    box-shadow:
+      0 1px 2px #1b1a190f,
+      0 10px 26px -20px #1b1a1966;
+  }
+  .app-card-hover:hover {
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--app-line));
+    box-shadow:
+      0 1px 2px #1b1a1914,
+      0 14px 30px -18px color-mix(in srgb, var(--brand) 45%, #1b1a1966);
+  }
+  /* Primary brand CTA. */
+  .app-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: var(--brand-ink);
+    background: linear-gradient(
+      135deg,
+      var(--brand),
+      color-mix(in srgb, var(--brand) 72%, #ff8a3d)
+    );
+    border-radius: 999px;
+    box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--brand) 65%, transparent);
+    transition:
+      transform 0.16s,
+      box-shadow 0.16s;
+  }
+  .app-cta:hover {
+    transform: translateY(-1px);
+  }
+  .app-cta:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  /* Soft brand chip / pill. */
+  .app-pill {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
     font-size: 0.75rem;
     font-weight: 600;
-    padding: 0.375rem 0.75rem;
+    padding: 0.35rem 0.7rem;
     border-radius: 999px;
-    background: color-mix(in srgb, #ffffff 8%, transparent);
-    border: 1px solid color-mix(in srgb, #ffffff 15%, transparent);
-    color: var(--neon-ink);
-  }
-  /* Primary gradient CTA — brand melting into tangerine. */
-  .neon-cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-weight: 800;
-    color: #14061f;
-    background: linear-gradient(135deg, var(--brand), var(--neon-tangerine));
-    border-radius: 999px;
-    box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--brand) 70%, transparent);
-    transition:
-      transform 0.18s,
-      box-shadow 0.18s;
-  }
-  .neon-cta:hover {
-    transform: translateY(-2px);
-  }
-  .neon-cta:focus-visible {
-    outline: 2px solid var(--neon-lime);
-    outline-offset: 2px;
-  }
-  /* Glass surface used for cards, fields, and nav chips. */
-  .neon-surface {
-    background: linear-gradient(160deg, color-mix(in srgb, #ffffff 9%, transparent), color-mix(in srgb, #ffffff 3%, transparent));
-    border: 1px solid color-mix(in srgb, #ffffff 12%, transparent);
-  }
-  .neon-surface-hover:hover {
-    border-color: color-mix(in srgb, var(--brand) 45%, transparent);
-    background: linear-gradient(160deg, color-mix(in srgb, #ffffff 13%, transparent), color-mix(in srgb, #ffffff 5%, transparent));
+    background: color-mix(in srgb, var(--brand) 9%, #ffffff);
+    color: color-mix(in srgb, var(--brand) 85%, #000);
+    border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
   }
   /* Colourful art tile for a card with no photo — hue set inline per merchant. */
-  .neon-art {
+  .app-art {
     display: grid;
     place-items: center;
     background: linear-gradient(
       135deg,
-      hsl(var(--art-h, 320) 90% 62%),
-      hsl(calc(var(--art-h, 320) + 42) 92% 56%)
+      hsl(var(--art-h, 350) 78% 62%),
+      hsl(calc(var(--art-h, 350) + 38) 80% 54%)
     );
-  }
-  /* Voucher ticket — a bold brand→violet gradient with a stub notch. */
-  .neon-ticket {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, var(--brand), var(--neon-violet));
     color: #fff;
-  }
-  .neon-ticket::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(60% 120% at 90% -10%, rgba(255, 255, 255, 0.35), transparent);
-    pointer-events: none;
   }
 }
 
@@ -278,16 +259,5 @@
   }
   html {
     @apply font-sans;
-  }
-  /* Give the whole neon subtree a subtle overhead spotlight so the ground isn't
-     flat. Sized in px (not %) so it stays a bounded halo at the top on any page
-     length, and pinned so it never tiles down a long directory. */
-  .neon {
-    background-image: radial-gradient(
-      1200px 460px at 50% -160px,
-      color-mix(in srgb, var(--neon-violet) 32%, transparent),
-      transparent 70%
-    );
-    background-repeat: no-repeat;
   }
 }

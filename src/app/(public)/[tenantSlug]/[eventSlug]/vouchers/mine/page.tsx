@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { brandStyle } from "@/features/visitors/neon";
+import { brandStyle } from "@/features/visitors/theme";
 import { getEventBranding } from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { renderQrDataUrl } from "@/server/services/qr.service";
@@ -29,7 +29,7 @@ export default async function MyVouchersPage({ params }: Params) {
     getEventBranding(event.tenantId, event.id),
   ]);
 
-  const primary = branding?.primaryColor ?? "#ff2d78";
+  const primary = branding?.primaryColor ?? "#e11d48";
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
 
   // The QR encodes the code itself, so staff can scan or type it — the redeem
@@ -43,24 +43,24 @@ export default async function MyVouchersPage({ params }: Params) {
       <div className="mb-5 grid gap-1">
         <Link
           href={`${baseHref}/vouchers`}
-          className="text-sm text-white/55 transition-colors hover:text-white"
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
         >
           ← Vouchers
         </Link>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">My vouchers</h1>
-        <p className="text-sm text-white/55">
+        <h1 className="text-foreground text-3xl font-extrabold tracking-tight">My vouchers</h1>
+        <p className="text-muted-foreground text-sm">
           Show a code at the stall to redeem it. Codes are saved to this device.
         </p>
       </div>
 
       {withQr.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-8 text-center">
-          <p className="text-sm font-semibold text-white">No vouchers claimed yet</p>
-          <p className="mt-1 text-sm text-white/55">
+        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+          <p className="text-foreground text-sm font-semibold">No vouchers claimed yet</p>
+          <p className="text-muted-foreground mt-1 text-sm">
             Claim one from the{" "}
             <Link
               href={`${baseHref}/vouchers`}
-              className="font-semibold text-[var(--neon-lime)] underline-offset-4 hover:underline"
+              className="font-semibold text-[var(--brand)] underline-offset-4 hover:underline"
             >
               vouchers page
             </Link>
@@ -74,16 +74,16 @@ export default async function MyVouchersPage({ params }: Params) {
             return (
               <li
                 key={claim.claimId}
-                className={`neon-surface rounded-2xl p-4 ${used ? "opacity-55" : ""}`}
+                className={`app-card p-4 ${used ? "opacity-60" : ""}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h2 className="font-bold tracking-tight text-white">{claim.title}</h2>
-                  <span className="shrink-0 rounded-full bg-linear-to-br from-[var(--brand)] to-[var(--neon-tangerine)] px-3 py-1 text-xs font-extrabold text-[#14061f]">
+                  <h2 className="text-foreground font-bold tracking-tight">{claim.title}</h2>
+                  <span className="shrink-0 rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-extrabold text-[var(--brand-ink)]">
                     {describeDiscount(claim)}
                   </span>
                 </div>
                 {claim.merchantName ? (
-                  <p className="mt-0.5 text-sm text-white/50">at {claim.merchantName}</p>
+                  <p className="text-muted-foreground mt-0.5 text-sm">at {claim.merchantName}</p>
                 ) : null}
 
                 <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -96,15 +96,15 @@ export default async function MyVouchersPage({ params }: Params) {
                     className="rounded-xl bg-white p-2"
                   />
                   <div className="grid gap-1">
-                    <span className="font-mono text-xl font-bold tracking-widest text-white">
+                    <span className="text-foreground font-mono text-xl font-bold tracking-widest">
                       {claim.code}
                     </span>
                     {used ? (
-                      <span className="text-sm font-semibold text-[var(--neon-mint)]">
+                      <span className="text-sm font-semibold text-emerald-600">
                         ✓ Redeemed
                       </span>
                     ) : (
-                      <span className="text-xs text-white/50">
+                      <span className="text-muted-foreground text-xs">
                         {claim.expiresAt
                           ? `Valid until ${claim.expiresAt.toISOString().slice(0, 10)}`
                           : "No expiry"}
@@ -113,7 +113,7 @@ export default async function MyVouchersPage({ params }: Params) {
                   </div>
                 </div>
 
-                {claim.terms ? <p className="mt-3 text-xs text-white/45">{claim.terms}</p> : null}
+                {claim.terms ? <p className="text-muted-foreground mt-3 text-xs">{claim.terms}</p> : null}
               </li>
             );
           })}

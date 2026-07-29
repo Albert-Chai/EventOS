@@ -8,7 +8,7 @@ import { formatPrice } from "@/features/merchants/format";
 import { FavouriteButton } from "@/features/visitors/components/favourite-button";
 import { RecordView } from "@/features/visitors/components/record-view";
 import { ShareButton } from "@/features/visitors/components/share-button";
-import { artStyle, brandStyle } from "@/features/visitors/neon";
+import { artStyle, brandStyle } from "@/features/visitors/theme";
 import { findPublicBoothNumberForMerchant } from "@/server/db/repositories/booths.repository";
 import {
   getEventBranding,
@@ -63,7 +63,7 @@ export default async function PublicMerchantPage({ params }: Params) {
   const enableFavourites = settings?.enableFavourites ?? true;
   const favourited = favourites.has(listing.participationId);
   const displayName = listing.listingTitle || listing.merchant.name;
-  const primary = branding?.primaryColor ?? "#ff2d78";
+  const primary = branding?.primaryColor ?? "#e11d48";
 
   // Resolve media URLs for the merchant logo/cover and item photos.
   const fileIds = [
@@ -106,7 +106,7 @@ export default async function PublicMerchantPage({ params }: Params) {
           />
         ) : (
           <div
-            className="neon-art h-44 w-full text-6xl sm:rounded-b-3xl"
+            className="app-art h-44 w-full text-6xl sm:rounded-b-3xl"
             style={artStyle(merchantSlug)}
             aria-hidden
           >
@@ -116,13 +116,13 @@ export default async function PublicMerchantPage({ params }: Params) {
         <Link
           href={`/${event.tenantSlug}/${event.slug}`}
           aria-label={`Back to ${event.name}`}
-          className="absolute top-4 left-4 grid size-9 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition-colors hover:bg-black/60"
+          className="text-foreground absolute top-4 left-4 grid size-9 place-items-center rounded-full bg-white/85 shadow-sm backdrop-blur transition-colors hover:bg-white"
         >
           ←
         </Link>
       </div>
 
-      <div className="px-5 sm:px-8">
+      <div className="px-4 sm:px-6">
         <div className="-mt-8 flex items-end gap-3">
           <MediaImage
             src={logoUrl}
@@ -130,13 +130,13 @@ export default async function PublicMerchantPage({ params }: Params) {
             width={72}
             height={72}
             fallback={listing.merchant.name}
-            className="size-18 shrink-0 rounded-2xl ring-4 ring-[#1a0b2e]"
+            className="size-18 shrink-0 rounded-2xl bg-white ring-4 ring-[var(--app-bg)]"
           />
         </div>
         <div className="mt-3 min-w-0">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">{displayName}</h1>
+          <h1 className="text-foreground text-3xl font-extrabold tracking-tight">{displayName}</h1>
           {listing.listingTitle && listing.listingTitle !== listing.merchant.name ? (
-            <p className="text-sm text-white/50">{listing.merchant.name}</p>
+            <p className="text-muted-foreground text-sm">{listing.merchant.name}</p>
           ) : null}
         </div>
 
@@ -158,7 +158,7 @@ export default async function PublicMerchantPage({ params }: Params) {
           {boothNumber ? (
             <a
               href={`/${event.tenantSlug}/${event.slug}/map?booth=${encodeURIComponent(boothNumber)}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/16 bg-white/8 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/14"
+              className="border-border bg-card text-foreground hover:bg-secondary inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-semibold shadow-sm transition-colors"
             >
               📍 Booth {boothNumber}
             </a>
@@ -166,7 +166,7 @@ export default async function PublicMerchantPage({ params }: Params) {
         </div>
 
         {listing.listingDescription || listing.merchant.description ? (
-          <p className="mt-4 text-sm whitespace-pre-line text-white/80">
+          <p className="text-muted-foreground mt-4 text-sm whitespace-pre-line">
             {listing.listingDescription || listing.merchant.description}
           </p>
         ) : null}
@@ -176,23 +176,21 @@ export default async function PublicMerchantPage({ params }: Params) {
             href={listing.merchant.website}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-block text-sm font-semibold text-[var(--neon-lime)] underline-offset-4 hover:underline"
+            className="mt-2 inline-block text-sm font-semibold text-[var(--brand)] underline-offset-4 hover:underline"
           >
             Visit website ↗
           </a>
         ) : null}
 
-        <h2 className="mt-8 text-[13px] font-bold tracking-[0.14em] text-[var(--neon-lime)] uppercase">
-          Menu
-        </h2>
+        <h2 className="app-eyebrow mt-8 block">Menu</h2>
         {items.length === 0 ? (
-          <p className="mt-2 text-sm text-white/55">No items listed.</p>
+          <p className="text-muted-foreground mt-2 text-sm">No items listed.</p>
         ) : (
-          <ul className="mt-3 grid">
+          <ul className="app-card mt-3 grid px-4">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex justify-between gap-4 border-b border-white/10 py-3.5 last:border-0"
+                className="border-border flex justify-between gap-4 border-b py-3.5 last:border-0"
               >
                 {item.imageFileId ? (
                   <MediaImage
@@ -205,33 +203,35 @@ export default async function PublicMerchantPage({ params }: Params) {
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold tracking-tight text-white">{item.name}</span>
+                    <span className="text-foreground font-bold tracking-tight">{item.name}</span>
                     {item.isHalal ? (
-                      <span className="rounded-full bg-[var(--neon-mint)]/15 px-2 py-0.5 text-[11px] font-semibold text-[var(--neon-mint)]">
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                         Halal
                       </span>
                     ) : null}
                     {item.availability === "sold_out" ? (
-                      <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+                      <span className="border-border text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] font-semibold">
                         Sold out
                       </span>
                     ) : null}
                   </div>
                   {item.description ? (
-                    <p className="mt-0.5 text-sm text-white/60">{item.description}</p>
+                    <p className="text-muted-foreground mt-0.5 text-sm">{item.description}</p>
                   ) : null}
                   {item.dietaryTags && item.dietaryTags.length > 0 ? (
-                    <p className="mt-0.5 text-xs text-white/40">{item.dietaryTags.join(", ")}</p>
+                    <p className="text-muted-foreground/70 mt-0.5 text-xs">
+                      {item.dietaryTags.join(", ")}
+                    </p>
                   ) : null}
                 </div>
                 {showPrices && item.price ? (
-                  <span className="shrink-0 text-right text-sm font-bold tabular-nums text-white">
+                  <span className="text-foreground shrink-0 text-right text-sm font-bold tabular-nums">
                     {item.promoPrice ? (
                       <>
-                        <span className="text-[var(--neon-lime)]">
+                        <span className="text-[var(--brand)]">
                           {formatPrice(item.promoPrice, item.currency)}
                         </span>
-                        <span className="ml-2 font-medium text-white/40 line-through">
+                        <span className="text-muted-foreground ml-2 font-medium line-through">
                           {formatPrice(item.price, item.currency)}
                         </span>
                       </>
