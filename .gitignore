@@ -53,3 +53,7 @@ next-env.d.ts
 # throwaway probe scripts run from the repo root (they need node_modules
 # resolution, so they can't live in /tmp)
 /.tmp-*
+
+# AI-generated demo imagery dropped in by hand (not source)
+/Merchants/
+/Moments/

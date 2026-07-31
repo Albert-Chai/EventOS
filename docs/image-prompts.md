@@ -3,8 +3,9 @@
 Prompts for generating demo imagery in an external AI image tool, sized to what
 the app actually crops to.
 
-**Event brand colour: `#EC1F27`** (a hot pillar-box red). Every prompt below
-names it, so the set reads as one festival rather than a pile of stock.
+**Event brand colour: `#EC1F27`** — a hot pillar-box red. Every prompt below
+describes it **in words**, never as the hex code, so the set reads as one
+festival without the code ending up printed on something. See the warning below.
 
 ---
 
@@ -14,6 +15,21 @@ names it, so the set reads as one festival rather than a pile of stock.
 a banner with "CASHBAKC" on it is worse than no banner. Generate the **artwork**
 with deliberate empty space, then set real type over it in Canva/Figma/Photoshop.
 Each banner prompt below ends with a negative clause enforcing that.
+
+**Never put a hex code or a placeholder word in a prompt.** Learned the hard way
+on the first batch: `#EC1F27` came back *printed on eight festival banners*, and
+`[CATEGORY]` came back as a stall sign reading "Lifestyle". Image models treat
+any string in the prompt as a candidate to render. Describe colour in words and
+substitute placeholders before you generate:
+
+| Don't write | Write |
+| --- | --- |
+| `crimson #EC1F27` | `hot pillar-box red, the red of a fire engine` |
+| `[CATEGORY] stall` | `a dessert stall` (substitute the real word) |
+| `Zone G banners` | `plain red fabric banners, no writing` |
+
+Adding `no writing, no signage, no text on banners` to the negative list is
+cheap insurance on any shot with fabric, signage, or packaging in it.
 
 **Sizes the app crops to.** Give the generator the aspect ratio; upscale after.
 
@@ -58,7 +74,7 @@ what you're selling them. Names below are plausible-but-fictional.
 ```
 Wide 3:1 banner artwork for a Malaysian bank sponsoring a food festival.
 Abstract geometric composition: overlapping soft-edged arcs and rounded
-rectangles in deep crimson #EC1F27, warm coral, and cream, on a dark charcoal
+rectangles in deep pillar-box red, warm coral, and cream, on a dark charcoal
 ground. Subtle paper grain. Generous empty negative space across the right two
 thirds for text to be added later. Clean, modern, corporate but warm. Flat
 vector style, no gradients that band. --ar 3:1
@@ -70,7 +86,7 @@ Negative: text, letters, words, numbers, logos, watermarks, faces, clutter.
 ```
 Wide 3:1 banner artwork for a mobile payments brand at a night food market.
 Bokeh of warm string lights and stall lanterns, heavily blurred, deep teal and
-crimson #EC1F27 colour grade, dark at the left edge fading to lighter open space
+hot fire-engine red colour grade, dark at the left edge fading to lighter open space
 on the right. Cinematic, premium, out of focus throughout so no object competes
 with overlaid text. --ar 3:1
 Negative: text, letters, words, logos, watermarks, sharp focal subject, people.
@@ -80,7 +96,7 @@ Negative: text, letters, words, logos, watermarks, sharp focal subject, people.
 
 ```
 Wide 3:1 banner artwork for a telco sponsoring a festival. Flowing ribbon of
-light tracing a network path across a dark plum background, crimson #EC1F27 and
+light tracing a network path across a dark plum background, hot pillar-box red and
 warm orange accents, particles trailing off, generous dark negative space on the
 left half. Sleek, technological, energetic. --ar 3:1
 Negative: text, letters, numbers, logos, watermarks, phones, devices, hands.
@@ -90,7 +106,7 @@ Negative: text, letters, numbers, logos, watermarks, phones, devices, hands.
 
 ```
 Wide 3:1 banner artwork for a sparkling drink brand. Extreme close-up of
-condensation and rising bubbles in amber-red liquid, backlit, crimson #EC1F27
+condensation and rising bubbles in amber-red liquid, backlit, hot pillar-box red
 highlights, dark background, macro, high-end commercial beverage photography.
 Composition weighted to the left third, clean open space to the right. --ar 3:1
 Negative: text, letters, logos, labels, branding, watermarks, cans, bottles.
@@ -101,7 +117,7 @@ Negative: text, letters, logos, labels, branding, watermarks, cans, bottles.
 ```
 Wide 3:1 banner artwork for a fresh-produce grocer sponsoring a food festival.
 Overhead flat lay on a cream linen surface: chillies, limes, lemongrass, pandan
-leaves, star anise, arranged loosely along the bottom edge, crimson #EC1F27 and
+leaves, star anise, arranged loosely along the bottom edge, hot pillar-box red and
 deep green palette, soft daylight, generous empty cream space across the top two
 thirds. Editorial food styling. --ar 3:1
 Negative: text, letters, logos, watermarks, packaging, hands, plates.
@@ -208,12 +224,18 @@ Negative: watermark, text, logo, face.
 ```
 
 **Crowd / atmosphere shot** (good as the feed's "just the event" post)
+
+> ⚠️ The first attempt at this one came back with `#EC1F27` printed across eight
+> banners, because the hex code was in the prompt. This version says the colour
+> in words and bans writing explicitly. Regenerate with it.
+
 ```
 Vertical 4:5 casual phone photo of a busy Kuala Lumpur night food festival —
 rows of lit stalls, hanging bulbs, crowds seen from behind, steam and smoke in
-the air, crimson #EC1F27 banners overhead, blue hour sky above. Handheld,
-slightly noisy, authentic. --ar 4:5
-Negative: watermark, text, readable signage, recognisable faces.
+the air, plain unmarked pillar-box red fabric banners overhead, blue hour sky
+above. Handheld, slightly noisy, authentic. --ar 4:5
+Negative: watermark, text, letters, numbers, writing on banners, signage, shop
+signs, readable text, recognisable faces.
 ```
 
 ---
@@ -223,14 +245,15 @@ Negative: watermark, text, readable signage, recognisable faces.
 One per category is enough — reuse across stalls in the same category.
 
 ```
-Wide 3:1 header image of a [CATEGORY] food stall at a Malaysian night market.
+Wide 3:1 header image of a CATEGORY food stall at a Malaysian night market.
 Warm early-evening light, hanging bulbs, food visible on the counter, shallow
-depth of field, crimson #EC1F27 accents in the stall canopy, blurred crowd
+depth of field, hot pillar-box red accents in the stall canopy, blurred crowd
 behind. Cinematic, editorial. --ar 3:1
-Negative: text, letters, signage, logos, watermarks, faces.
+Negative: text, letters, words, signage, shop signs, logos, watermarks, faces.
 ```
 
-Swap `[CATEGORY]` for the categories actually in the event: `Malay`,
+**Substitute the word before generating** — leaving a placeholder in gets you a
+stall sign with the placeholder printed on it. Categories in the event: `Malay`,
 `Chinese`, `Indian`, `Indian Muslim`, `Indonesian`, `Thai`, `Vietnamese`,
 `Korean`, `Japanese`, `Taiwanese`, `Mexican`, `Burgers`, `Pizza`, `BBQ`,
 `Bakery`, `Desserts`, `Drinks`, `Coffee`, `Snacks`, `Vegetarian`, `Lifestyle`.
@@ -241,7 +264,7 @@ These render at **56–72px**. Anything detailed turns to mush — insist on it:
 
 ```
 Simple flat vector logo mark for a Malaysian street food stall, single bold
-symbol only, [MOTIF], crimson #EC1F27 on cream, thick strokes, high contrast,
+symbol only, MOTIF, hot pillar-box red on cream, thick strokes, high contrast,
 centred, generous padding, designed to stay legible at 48 pixels. Minimal,
 geometric, no gradients. --ar 1:1
 Negative: text, letters, words, wordmark, fine detail, thin lines, drop shadow,

@@ -25,7 +25,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "content:import": "tsx scripts/import-content.ts",
     "db:studio": "drizzle-kit studio",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "db:seed:media": "tsx scripts/seed-demo-media.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
