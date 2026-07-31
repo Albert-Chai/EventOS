@@ -1,3 +1,5 @@
+import { isUuid } from "@/lib/uuid";
+
 /**
  * Moments — the visitor post feed (docs/phase-10-moments-plan.md).
  *
@@ -107,18 +109,13 @@ export function hasCommentContent(body: string | null | undefined): boolean {
   return typeof body === "string" && body.trim().length > 0;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
- * Guards a post id taken straight from the URL.
- *
- * A hand-typed, truncated, or garbled id must never reach Postgres as a `uuid`
- * comparison: that's a driver error and a 500, when the honest answer is "no
- * such post" — and a 500 also tells an prober that their input reached the
- * database. Check the shape first and 404.
+ * Guards a post id taken straight from the URL, so a garbled one 404s instead of
+ * reaching Postgres as a `uuid` comparison and surfacing as a 500. See
+ * `lib/uuid.ts` for why that distinction matters.
  */
 export function isMomentId(value: string): boolean {
-  return UUID_RE.test(value);
+  return isUuid(value);
 }
 
 /** Rounds a raw average to one decimal, or null when there's nothing to average. */

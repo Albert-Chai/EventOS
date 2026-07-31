@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/api/errors";
+import { isUuid } from "@/lib/uuid";
 import type { AdBooking, Sponsor } from "@/server/db/schema";
 import type { TenantScopedContext } from "@/server/context";
 import {
@@ -119,6 +120,11 @@ export async function recordAdImpression(bookingId: string): Promise<void> {
  * servable, and the route 404s rather than explaining why.
  */
 export async function resolveAdClick(bookingId: string): Promise<string | null> {
+  // Shape-check before the id becomes a `uuid` comparison. `/s/<junk>` is a
+  // public URL on every sponsor banner, and a mistyped or truncated one should
+  // 404 like any other unknown booking rather than 500 (see lib/uuid.ts).
+  if (!isUuid(bookingId)) return null;
+
   const booking = await findServableBookingById(bookingId, new Date());
   if (!booking?.clickUrl || !isValidClickUrl(booking.clickUrl)) return null;
 

@@ -47,8 +47,12 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const event = await findPublicEvent(tenantSlug, eventSlug);
   if (!event) notFound();
 
+  // Parsed once: the query, the empty-state copy, and the analytics event must
+  // all agree on which filters actually applied.
+  const filters = parseDirectoryParams(sp);
+
   const [results, facets, settings, favourites, featured, branding] = await Promise.all([
-    searchDirectory(event.id, parseDirectoryParams(sp)),
+    searchDirectory(event.id, filters),
     getDirectoryFacets(event.id),
     getEventSettings(event.tenantId, event.id),
     listFavouriteParticipationIdsForRead(event.id),
@@ -62,7 +66,15 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   const isSearching = hasActiveFilters(sp);
 
   const searchQuery = sp.q?.trim();
-  const activeFilters = (["category", "zone", "halal", "promo"] as const).filter((k) => sp[k]);
+  // From the parsed filters, not the raw params: a malformed id is dropped
+  // before the query, so logging it as an applied filter would put a number in
+  // the analytics log that never affected a result.
+  const activeFilters = [
+    filters.categoryId && "category",
+    filters.zoneId && "zone",
+    filters.halal && "halal",
+    filters.promoOnly && "promo",
+  ].filter(Boolean);
 
   return (
     <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
