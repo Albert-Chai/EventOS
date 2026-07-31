@@ -140,7 +140,12 @@ export function PublicMap({
   // the initializer keeps SSR and the first client render identical.
   const [plan, setPlan] = useState<string[]>(() => {
     const p = searchParams.get("plan");
-    return p ? p.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    return p
+      ? p
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
   });
   const [entranceId, setEntranceId] = useState<string | null>(() => searchParams.get("from"));
   const [step, setStep] = useState<number | null>(null);
@@ -380,11 +385,16 @@ export function PublicMap({
         onPointerLeave={onPointerUp}
         /* Fills the gap between the sticky header and the collapsed sheet
            (header 3.25rem + bottom nav 3.5rem + sheet peek 4rem) so the map is
-           never buried under the sheet on a phone. */
-        className="relative h-[calc(100dvh-10.75rem)] max-h-[46rem] min-h-[19rem] w-full touch-none overflow-hidden bg-[#e8ece4] select-none"
+           never buried under the sheet on a phone. From lg neither the bottom
+           nav nor the peek exists — the panel docks to the left instead — so the
+           map takes the whole window below the header. */
+        className="relative h-[calc(100dvh-10.75rem)] max-h-[46rem] min-h-[19rem] w-full touch-none overflow-hidden bg-[#e8ece4] select-none lg:ml-[23rem] lg:h-[calc(100dvh-3.75rem)] lg:max-h-none lg:w-[calc(100%-23rem)]"
       >
         <div
-          style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transformOrigin: "0 0" }}
+          style={{
+            transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+            transformOrigin: "0 0",
+          }}
           className="absolute inset-0"
         >
           {activeFloor?.imageUrl ? (
@@ -533,10 +543,20 @@ export function PublicMap({
               ))}
             </select>
           ) : null}
-          <button type="button" aria-label="Zoom in" className={ctrlBtn} onClick={() => zoomCentre(1.35)}>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            className={ctrlBtn}
+            onClick={() => zoomCentre(1.35)}
+          >
             <Plus className="size-5" aria-hidden />
           </button>
-          <button type="button" aria-label="Zoom out" className={ctrlBtn} onClick={() => zoomCentre(1 / 1.35)}>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            className={ctrlBtn}
+            onClick={() => zoomCentre(1 / 1.35)}
+          >
             <Minus className="size-5" aria-hidden />
           </button>
           <button type="button" aria-label="Fit map" className={ctrlBtn} onClick={resetView}>
@@ -560,7 +580,7 @@ export function PublicMap({
         {/* zone legend / filter — one scrollable row so 8+ zones never blanket
             the map on a phone */}
         {zones.length > 0 ? (
-          <div className="absolute inset-x-0 bottom-2 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
+          <div className="absolute inset-x-0 bottom-2 flex [scrollbar-width:none] gap-1.5 overflow-x-auto px-3 pb-1 sm:flex-wrap [&::-webkit-scrollbar]:hidden">
             {zones.map((z) => {
               const on = zoneFilter === z.id;
               return (
@@ -632,6 +652,9 @@ export function PublicMap({
         className={cn(
           "fixed inset-x-0 bottom-14 z-30 mx-auto max-w-2xl rounded-t-3xl bg-white shadow-[0_-8px_30px_-12px_#1b1a1959] ring-1 ring-black/5 transition-transform",
           sheetOpen ? "translate-y-0" : "translate-y-[calc(100%-4rem)]",
+          // From lg it stops being a sheet: it docks to the left of the map as a
+          // permanently open panel, so `sheetOpen` no longer moves it.
+          "lg:inset-x-auto lg:top-[4.75rem] lg:bottom-5 lg:left-5 lg:mx-0 lg:flex lg:w-[21rem] lg:max-w-none lg:translate-y-0 lg:flex-col lg:rounded-3xl lg:shadow-[0_20px_50px_-20px_#1b1a1959]",
         )}
       >
         {/* Peek row — doubles as the collapse handle. Collapsed, it still says
@@ -641,7 +664,7 @@ export function PublicMap({
           type="button"
           onClick={() => setSheetOpen((o) => !o)}
           aria-expanded={sheetOpen}
-          className="flex w-full flex-col items-center gap-1 px-4 pt-2.5 pb-2"
+          className="flex w-full flex-col items-center gap-1 px-4 pt-2.5 pb-2 lg:hidden"
           aria-label={sheetOpen ? "Collapse panel" : "Expand panel"}
         >
           <span className="h-1.5 w-10 shrink-0 rounded-full bg-black/15" aria-hidden />
@@ -649,7 +672,9 @@ export function PublicMap({
             <Search className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
             <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-semibold">
               {selected
-                ? (selected.listingTitle ?? selected.merchantName ?? `Booth ${selected.boothNumber}`)
+                ? (selected.listingTitle ??
+                  selected.merchantName ??
+                  `Booth ${selected.boothNumber}`)
                 : "Find a stall or merchant"}
             </span>
             <span className="text-muted-foreground shrink-0 text-xs">
@@ -658,7 +683,7 @@ export function PublicMap({
           </span>
         </button>
 
-        <div className="max-h-[44dvh] overflow-y-auto px-4 pb-5">
+        <div className="max-h-[44dvh] overflow-y-auto px-4 pb-5 lg:max-h-none lg:min-h-0 lg:flex-1 lg:pt-5">
           {searchOpen ? (
             /* ---- search mode ---- */
             <>
@@ -876,9 +901,7 @@ function PlanPanel({
   return (
     <div className="border-border border-t pt-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="app-eyebrow">
-          My food plan{plan.length ? ` · ${plan.length}` : ""}
-        </h3>
+        <h3 className="app-eyebrow">My food plan{plan.length ? ` · ${plan.length}` : ""}</h3>
         {plan.length > 0 ? (
           <button
             type="button"
@@ -912,8 +935,8 @@ function PlanPanel({
 
       {plan.length === 0 ? (
         <p className="text-muted-foreground mt-2 text-sm">
-          Tap a stall on the map, then <span className="text-foreground font-semibold">Add to
-          food plan</span> to build a route.
+          Tap a stall on the map, then{" "}
+          <span className="text-foreground font-semibold">Add to food plan</span> to build a route.
         </p>
       ) : (
         <>
@@ -931,7 +954,11 @@ function PlanPanel({
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[var(--brand)] text-[10px] font-extrabold text-[var(--brand-ink)]">
                   {i + 1}
                 </span>
-                <button type="button" onClick={() => goToStep(i)} className="min-w-0 flex-1 text-left">
+                <button
+                  type="button"
+                  onClick={() => goToStep(i)}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <span className="text-foreground block truncate font-semibold">
                     {b.merchantName ?? b.name ?? "Stall"}
                   </span>

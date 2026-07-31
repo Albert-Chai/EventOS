@@ -5,7 +5,10 @@ import { X } from "lucide-react";
 
 import { MomentComposer } from "@/features/moments/components/moment-composer";
 import { brandStyle } from "@/features/visitors/theme";
-import { getEventBranding, getEventSettings } from "@/server/db/repositories/event-config.repository";
+import {
+  getEventBranding,
+  getEventSettings,
+} from "@/server/db/repositories/event-config.repository";
 import { findPublicEvent } from "@/server/db/repositories/events.repository";
 import { listPublicParticipations } from "@/server/db/repositories/participations.repository";
 import { getCurrentUser } from "@/server/auth/session";
@@ -49,7 +52,7 @@ export default async function NewMomentPage({ params }: Params) {
   return (
     <div className="moments min-h-dvh" style={brandStyle(primary)}>
       <div className="mx-auto w-full max-w-[470px]">
-        <div className="sticky top-[57px] z-30 flex items-center gap-1 border-b border-[var(--feed-line)] bg-white/95 px-2 py-2 backdrop-blur">
+        <div className="sticky top-15 z-30 flex items-center gap-1 border-b border-[var(--feed-line)] bg-white/95 px-2 py-2 backdrop-blur">
           <Link
             href={`/${tenantSlug}/${eventSlug}/moments`}
             aria-label="Cancel"

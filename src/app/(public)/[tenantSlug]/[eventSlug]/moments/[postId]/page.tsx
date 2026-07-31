@@ -42,7 +42,11 @@ export default async function MomentDetailPage({ params }: Params) {
 
   // Sequential: the dev/test pooler caps at one connection.
   const viewer = await getVisitorReader();
-  const detail = await getMomentDetail({ tenantSlug, eventSlug }, postId, viewer?.visitorId ?? null);
+  const detail = await getMomentDetail(
+    { tenantSlug, eventSlug },
+    postId,
+    viewer?.visitorId ?? null,
+  );
   if (!detail) notFound();
 
   const branding = await getEventBranding(event.tenantId, event.id);
@@ -54,7 +58,7 @@ export default async function MomentDetailPage({ params }: Params) {
   return (
     <div className="moments min-h-dvh" style={brandStyle(primary)}>
       <div className="mx-auto w-full max-w-[470px]">
-        <div className="sticky top-[57px] z-30 flex items-center gap-1 border-b border-[var(--feed-line)] bg-white/95 px-2 py-2 backdrop-blur">
+        <div className="sticky top-15 z-30 flex items-center gap-1 border-b border-[var(--feed-line)] bg-white/95 px-2 py-2 backdrop-blur">
           <Link
             href={feedHref}
             aria-label="Back to Moments"
@@ -81,11 +85,7 @@ export default async function MomentDetailPage({ params }: Params) {
           <h2 className="px-3 pt-3 text-[11px] font-bold tracking-widest text-[var(--feed-muted)] uppercase">
             {detail.comments.length === 1 ? "1 comment" : `${detail.comments.length} comments`}
           </h2>
-          <CommentList
-            comments={detail.comments}
-            tenantSlug={tenantSlug}
-            eventSlug={eventSlug}
-          />
+          <CommentList comments={detail.comments} tenantSlug={tenantSlug} eventSlug={eventSlug} />
         </div>
 
         {viewer ? (

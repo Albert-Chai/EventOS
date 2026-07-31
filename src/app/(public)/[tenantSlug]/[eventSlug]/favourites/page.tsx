@@ -31,11 +31,16 @@ export default async function FavouritesPage({ params }: Params) {
 
   if (settings && !settings.enableFavourites) {
     return (
-      <article className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-        <Link href={baseHref} className="text-muted-foreground hover:text-foreground text-sm transition-colors">
+      <article className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+        <Link
+          href={baseHref}
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
           ← {event.name}
         </Link>
-        <p className="text-muted-foreground mt-6 text-sm">Favourites aren’t enabled for this event.</p>
+        <p className="text-muted-foreground mt-6 text-sm">
+          Favourites aren’t enabled for this event.
+        </p>
       </article>
     );
   }
@@ -43,9 +48,12 @@ export default async function FavouritesPage({ params }: Params) {
   const cards = await listFavouritesForRead(event.id);
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <article className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
       <div className="mb-4 grid gap-1">
-        <Link href={baseHref} className="text-muted-foreground hover:text-foreground text-sm transition-colors">
+        <Link
+          href={baseHref}
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
           ← {event.name}
         </Link>
         <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Saved stalls</h1>
@@ -53,7 +61,7 @@ export default async function FavouritesPage({ params }: Params) {
       </div>
 
       {cards.length === 0 ? (
-        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+        <div className="border-border mx-auto mt-6 max-w-xl rounded-2xl border border-dashed p-8 text-center">
           <p className="text-foreground text-sm font-semibold">Nothing saved yet</p>
           <p className="text-muted-foreground mt-1 text-sm">
             Tap the heart on any stall to save it here for quick access.
@@ -66,7 +74,7 @@ export default async function FavouritesPage({ params }: Params) {
           </Link>
         </div>
       ) : (
-        <ul className="grid gap-2 [&>li]:min-w-0">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3 [&>li]:min-w-0">
           {cards.map((card) => (
             <li key={card.participationId}>
               <MerchantCard

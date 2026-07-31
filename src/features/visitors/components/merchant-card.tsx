@@ -56,10 +56,12 @@ export function MerchantCard({
   const price = card.minPrice ? formatPrice(card.minPrice, card.currency ?? "") : "";
 
   return (
-    <div className="relative">
+    // h-full so cards in a multi-column grid share a row height instead of each
+    // sizing to its own description.
+    <div className="relative h-full">
       <Link
         href={`${baseHref}/${card.merchantSlug}`}
-        className="app-card app-card-hover flex gap-3 p-3"
+        className="app-card app-card-hover flex h-full gap-3 p-3"
       >
         {card.logoUrl ? (
           <MediaImage
@@ -90,7 +92,9 @@ export function MerchantCard({
                 ★ Featured
               </span>
             ) : null}
-            <span className="text-foreground min-w-0 truncate font-bold tracking-tight">
+            {/* truncate keeps a long name from propping the card open on a
+                phone; in a desktop grid the column is fixed, so it can wrap. */}
+            <span className="text-foreground min-w-0 truncate font-bold tracking-tight lg:overflow-visible lg:text-clip lg:whitespace-normal">
               {title}
             </span>
           </span>
@@ -116,7 +120,9 @@ export function MerchantCard({
                   Halal
                 </span>
               ) : null}
-              {card.hasPromo ? <span className="app-pill px-2 py-0.5 text-[11px]">Promo</span> : null}
+              {card.hasPromo ? (
+                <span className="app-pill px-2 py-0.5 text-[11px]">Promo</span>
+              ) : null}
               {price ? <span className="text-muted-foreground text-xs">from {price}</span> : null}
             </div>
           ) : null}

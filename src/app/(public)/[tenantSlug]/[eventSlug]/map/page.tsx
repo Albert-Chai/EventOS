@@ -76,11 +76,11 @@ export default async function PublicMapPage({ params, searchParams }: Params & S
   // Full-bleed app screen: the map fills the viewport under the shell chrome,
   // so it gets no page padding and cancels the layout's bottom-nav spacing.
   return (
-    <article className="-mb-24" style={brandStyle(primary)}>
+    <article className="-mb-24 lg:-mb-10" style={brandStyle(primary)}>
       <Track name="map_opened" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
 
       {booths.length === 0 ? (
-        <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
           <Link
             href={baseHref}
             className="text-muted-foreground hover:text-foreground text-sm transition-colors"

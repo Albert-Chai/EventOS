@@ -39,7 +39,7 @@ export default async function MyVouchersPage({ params }: Params) {
   );
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
+    <article className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
       <div className="mb-5 grid gap-1">
         <Link
           href={`${baseHref}/vouchers`}
@@ -54,7 +54,7 @@ export default async function MyVouchersPage({ params }: Params) {
       </div>
 
       {withQr.length === 0 ? (
-        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+        <div className="border-border mx-auto mt-6 max-w-xl rounded-2xl border border-dashed p-8 text-center">
           <p className="text-foreground text-sm font-semibold">No vouchers claimed yet</p>
           <p className="text-muted-foreground mt-1 text-sm">
             Claim one from the{" "}
@@ -68,14 +68,11 @@ export default async function MyVouchersPage({ params }: Params) {
           </p>
         </div>
       ) : (
-        <ul className="grid gap-4">
+        <ul className="grid gap-4 lg:grid-cols-2 [&>li]:min-w-0">
           {withQr.map((claim) => {
             const used = Boolean(claim.redeemedAt) || claim.codeStatus === "redeemed";
             return (
-              <li
-                key={claim.claimId}
-                className={`app-card p-4 ${used ? "opacity-60" : ""}`}
-              >
+              <li key={claim.claimId} className={`app-card p-4 ${used ? "opacity-60" : ""}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h2 className="text-foreground font-bold tracking-tight">{claim.title}</h2>
                   <span className="shrink-0 rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-extrabold text-[var(--brand-ink)]">
@@ -100,9 +97,7 @@ export default async function MyVouchersPage({ params }: Params) {
                       {claim.code}
                     </span>
                     {used ? (
-                      <span className="text-sm font-semibold text-emerald-600">
-                        ✓ Redeemed
-                      </span>
+                      <span className="text-sm font-semibold text-emerald-600">✓ Redeemed</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">
                         {claim.expiresAt
@@ -113,7 +108,9 @@ export default async function MyVouchersPage({ params }: Params) {
                   </div>
                 </div>
 
-                {claim.terms ? <p className="text-muted-foreground mt-3 text-xs">{claim.terms}</p> : null}
+                {claim.terms ? (
+                  <p className="text-muted-foreground mt-3 text-xs">{claim.terms}</p>
+                ) : null}
               </li>
             );
           })}

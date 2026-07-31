@@ -42,7 +42,7 @@ export default async function PublicVouchersPage({ params }: Params) {
   const baseHref = `/${event.tenantSlug}/${event.slug}`;
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6" style={brandStyle(primary)}>
+    <article className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6" style={brandStyle(primary)}>
       <Track name="voucher_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
 
       <div className="mb-5 grid gap-1">
@@ -63,20 +63,15 @@ export default async function PublicVouchersPage({ params }: Params) {
         </div>
       </div>
 
-      <AdSlot
-        slot="vouchers"
-        tenantSlug={tenantSlug}
-        eventSlug={eventSlug}
-        className="mb-4"
-      />
+      <AdSlot slot="vouchers" tenantSlug={tenantSlug} eventSlug={eventSlug} className="mb-4" />
 
       {vouchers.length === 0 ? (
-        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
+        <div className="border-border mx-auto mt-6 max-w-xl rounded-2xl border border-dashed p-8 text-center">
           <p className="text-foreground text-sm font-semibold">No vouchers right now</p>
           <p className="text-muted-foreground mt-1 text-sm">Check back closer to the event.</p>
         </div>
       ) : (
-        <ul className="grid gap-3 [&>li]:min-w-0">
+        <ul className="grid gap-3 lg:grid-cols-2 [&>li]:min-w-0">
           {vouchers.map((voucher) => {
             const remaining = remainingQuantity(voucher);
             return (

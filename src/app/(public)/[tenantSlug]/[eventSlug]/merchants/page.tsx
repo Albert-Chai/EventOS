@@ -77,7 +77,7 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
   ].filter(Boolean);
 
   return (
-    <article className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
+    <article className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8" style={brandStyle(primary)}>
       <Track name="merchant_list_viewed" tenantSlug={event.tenantSlug} eventSlug={event.slug} />
       {searchQuery ? (
         <Track
@@ -105,52 +105,56 @@ export default async function DirectoryPage({ params, searchParams }: Params & S
         <h1 className="text-foreground text-3xl font-extrabold tracking-tight">Stalls</h1>
       </div>
 
-      <div className="grid gap-3">
-        <SearchBar />
-        <FilterBar facets={facets} />
-      </div>
-
-      <AdSlot
-        slot="directory_inline"
-        tenantSlug={tenantSlug}
-        eventSlug={eventSlug}
-        className="mt-4"
-      />
-
-      <p className="text-muted-foreground mt-4 text-sm" aria-live="polite">
-        <span className="font-bold text-[var(--brand)]">{results.length}</span>{" "}
-        {results.length === 1 ? "stall" : "stalls"}
-        {isSearching ? " match your search" : ""}
-      </p>
-
-      {results.length === 0 ? (
-        <div className="border-border mt-6 rounded-2xl border border-dashed p-8 text-center">
-          <p className="text-foreground text-sm font-semibold">No stalls found</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {isSearching
-              ? "Try a different search or clear the filters."
-              : "Listings will appear here as they’re approved."}
-          </p>
+      {/* From lg the controls become a sticky sidebar and the results take the
+          rest of the width. Below lg this is one column in the same DOM order:
+          search, filters, ad, count, results. */}
+      <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <div className="grid gap-3 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:pr-1 lg:pb-2">
+          {/* Short placeholder: the box is a 16rem sidebar from lg, and a longer
+              one is ellipsised before it can be read. */}
+          <SearchBar placeholder="Search stalls…" />
+          <FilterBar facets={facets} />
         </div>
-      ) : (
-        // [&>li]:min-w-0 — grid items default to min-width:auto, so a card's
-        // intrinsic width would otherwise push the page sideways on a phone.
-        <ul className="mt-4 grid gap-2 [&>li]:min-w-0">
-          {results.map((card) => (
-            <li key={card.participationId}>
-              <MerchantCard
-                card={card}
-                baseHref={baseHref}
-                tenantSlug={event.tenantSlug}
-                eventSlug={event.slug}
-                favourited={favourites.has(card.participationId)}
-                featured={featured.has(card.participationId)}
-                showFavourite={showFavourite}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+
+        <div className="min-w-0">
+          <AdSlot slot="directory_inline" tenantSlug={tenantSlug} eventSlug={eventSlug} />
+
+          <p className="text-muted-foreground mt-4 text-sm lg:mt-3" aria-live="polite">
+            <span className="font-bold text-[var(--brand)]">{results.length}</span>{" "}
+            {results.length === 1 ? "stall" : "stalls"}
+            {isSearching ? " match your search" : ""}
+          </p>
+
+          {results.length === 0 ? (
+            <div className="border-border mx-auto mt-6 max-w-xl rounded-2xl border border-dashed p-8 text-center">
+              <p className="text-foreground text-sm font-semibold">No stalls found</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {isSearching
+                  ? "Try a different search or clear the filters."
+                  : "Listings will appear here as they’re approved."}
+              </p>
+            </div>
+          ) : (
+            // [&>li]:min-w-0 — grid items default to min-width:auto, so a card's
+            // intrinsic width would otherwise push the page sideways on a phone.
+            <ul className="mt-4 grid gap-2 lg:grid-cols-2 lg:gap-3 [&>li]:min-w-0">
+              {results.map((card) => (
+                <li key={card.participationId}>
+                  <MerchantCard
+                    card={card}
+                    baseHref={baseHref}
+                    tenantSlug={event.tenantSlug}
+                    eventSlug={event.slug}
+                    favourited={favourites.has(card.participationId)}
+                    featured={featured.has(card.participationId)}
+                    showFavourite={showFavourite}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </article>
   );
 }
