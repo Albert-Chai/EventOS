@@ -49,3 +49,7 @@ next-env.d.ts
 
 # drizzle
 !/drizzle/
+
+# throwaway probe scripts run from the repo root (they need node_modules
+# resolution, so they can't live in /tmp)
+/.tmp-*
